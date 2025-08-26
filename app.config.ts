@@ -10,6 +10,9 @@ export default (): ExpoConfig => ({
     scheme: "myapp",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
+    "android": {
+    "package": "com.hustl.app"
+    }, 
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.hustl.app",
