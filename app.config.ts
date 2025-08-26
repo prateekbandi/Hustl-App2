@@ -10,10 +10,6 @@ export default (): ExpoConfig => ({
     scheme: "myapp",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
-    {
-    "android": {
-    "package": "com.hustl.app"
-    }
     },
     ios: {
       supportsTablet: true,
@@ -22,6 +18,9 @@ export default (): ExpoConfig => ({
         NSLocationWhenInUseUsageDescription: "We use your location to show nearby tasks on the map.",
         LSApplicationQueriesSchemes: ["comgooglemaps"]
       }
+    },
+    "android": {
+    "package": "com.hustl.app"
     },
     web: {
       bundler: "metro",
