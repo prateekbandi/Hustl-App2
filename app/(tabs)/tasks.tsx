@@ -727,12 +727,16 @@ const styles = StyleSheet.create({
   tasksList: {
     paddingHorizontal: 16,
     paddingBottom: 80 + 24,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   taskCard: {
+    width: '48%',
     backgroundColor: Colors.semantic.card,
     borderRadius: 20,
     padding: 20,
-    marginBottom: 16,
     borderWidth: 1,
     borderColor: 'rgba(229, 231, 235, 0.5)',
     shadowColor: '#000',
@@ -740,6 +744,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 16,
     elevation: 6,
+    marginBottom: 12,
   },
   statusContainer: {
     marginBottom: 16,
