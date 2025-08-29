@@ -782,13 +782,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 16,
+    paddingHorizontal: 4,
   },
   
   // Enhanced Category Cards
   categoryCardContainer: {
-    width: '48%',
+    width: (width - 56) / 2, // Calculate exact width for 2 columns with padding
     position: 'relative',
+    marginBottom: 20,
   },
   categoryHalo: {
     position: 'absolute',
@@ -801,8 +802,7 @@ const styles = StyleSheet.create({
     zIndex: 0,
   },
   categoryCard: {
-    height: 280,
-    marginBottom: 20,
+    height: 300,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.12,
