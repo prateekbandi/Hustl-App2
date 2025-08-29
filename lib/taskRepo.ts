@@ -137,11 +137,11 @@ export class TaskRepo {
 
   /**
    * Accept a task using atomic RPC function
-   * Uses new atomic RPC function with proper enum values and error handling
+   * Uses clean single-parameter RPC function
    */
   static async acceptTask(taskId: string, userId: string): Promise<{ data: Task | null; error: string | null }> {
     try {
-      // Use new atomic RPC function (only needs task ID, user comes from auth.uid())
+      // Use atomic RPC function (only needs task ID, user comes from auth.uid())
       const { data, error } = await supabase.rpc('accept_task', { 
         p_task_id: taskId
       });
