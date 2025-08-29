@@ -106,6 +106,7 @@ export class TaskRepo {
   }
 
   static async acceptTask(taskId: string, userId: string): Promise<{ data: Task | null; error: string | null }> {
+    try {
       // Use atomic RPC function - parameter name must match exactly
       const { data, error } = await supabase.rpc('accept_task', { 
         task_id: taskId
