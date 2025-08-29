@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 import type { Task } from '../types/task';
 
 export async function acceptTask(taskId: string): Promise<Task> {
-  const { data, error } = await supabase.rpc('accept_task', { p_task_id: taskId });
+  const { data, error } = await supabase.rpc('accept_task', { task_id: taskId });
   
   if (error) {
     // Map common DB errors to friendly messages
