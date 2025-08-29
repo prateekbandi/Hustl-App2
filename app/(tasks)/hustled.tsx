@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import * as Haptics from 'expo-haptics';
-import { ArrowLeft, MessageCircle, Play, CheckCircle, X, Zap, Clock, MapPin, Store } from 'lucide-react-native';
+import { ArrowLeft, MessageCircle, Play, CircleCheck as CheckCircle, X, Zap, Clock, MapPin, Store } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/theme/colors';
 import { getTask, updateTaskStatus } from '@/src/services/tasks';
