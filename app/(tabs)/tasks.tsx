@@ -192,10 +192,10 @@ export default function TasksScreen() {
         setAvailableTasks(prev => prev.filter(t => t.id !== task.id));
         setDoingTasks(prev => [result.data!, ...prev]);
         
-        setToast({
-          visible: true,
-          message: 'Task accepted successfully! Chat is now available.',
-          type: 'success'
+        // Navigate to celebration screen
+        router.push({
+          pathname: '/(tasks)/hustled',
+          params: { taskId: task.id }
         });
 
         // Open Google Maps navigation if location is available
