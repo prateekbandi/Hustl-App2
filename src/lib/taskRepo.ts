@@ -108,7 +108,8 @@ export class TaskRepo {
   static async acceptTask(taskId: string, userId: string): Promise<{ data: Task | null; error: string | null }> {
     try {
       const { data, error } = await supabase.rpc('accept_task', { 
-        p_task_id: taskId 
+        p_task_id: taskId,
+        p_user_id: userId
       });
 
       if (error) {
@@ -116,7 +117,12 @@ export class TaskRepo {
         return { data: null, error: error.message };
       }
 
-      const acceptedTask = data?.[0] ?? null;
+      // Handle new JSON response format
+      if (!data?.success) {
+        return { data: null, error: data?.error || 'Failed to accept task' };
+      }
+
+      const acceptedTask = data?.data ?? null;
       if (!acceptedTask) {
         return { data: null, error: 'Task is no longer available or cannot be accepted' };
       }
