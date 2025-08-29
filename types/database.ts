@@ -1,5 +1,5 @@
-export type TaskStatus = 'open' | 'accepted' | 'completed' | 'cancelled';
-export type TaskCurrentStatus = 'accepted' | 'picked_up' | 'on_the_way' | 'delivered' | 'completed';
+export type TaskStatus = 'posted' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+export type TaskCurrentStatus = 'posted' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
 export type TaskCategory = 'food' | 'grocery' | 'coffee';
 export type TaskUrgency = 'low' | 'medium' | 'high';
 
@@ -15,10 +15,11 @@ export interface Task {
   reward_cents: number;
   estimated_minutes: number;
   status: TaskStatus;
-  current_status: TaskCurrentStatus;
+  task_current_status: TaskCurrentStatus;
+  accepted_by: string | null;
+  accepted_at: string | null;
   last_status_update: string;
   created_by: string;
-  accepted_by: string | null;
   created_at: string;
   updated_at: string;
 }

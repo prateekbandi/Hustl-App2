@@ -175,6 +175,7 @@ export default function TasksScreen() {
     setError('');
 
     try {
+      // Use the new atomic accept function
       const result = await TaskRepo.acceptTask(task.id, user.id);
 
       if (result.error) {
@@ -187,12 +188,13 @@ export default function TasksScreen() {
       }
 
       if (result.data) {
+        // Update local state - remove from available, add to doing
         setAvailableTasks(prev => prev.filter(t => t.id !== task.id));
         setDoingTasks(prev => [result.data!, ...prev]);
         
         setToast({
           visible: true,
-          message: 'Task accepted! Chat is now available.',
+          message: 'Task accepted successfully! Chat is now available.',
           type: 'success'
         });
 
