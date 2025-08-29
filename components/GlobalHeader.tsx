@@ -1,12 +1,25 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, TextInput, Modal, ScrollView, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Search, Bell } from 'lucide-react-native';
+import { Search, Bell, ChevronDown, Wallet, DollarSign, X, HelpCircle, Flag, MessageSquare, Settings, User, FileText } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring } from 'react-native-reanimated';
 import { Colors } from '@/theme/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import ProfileSidebar from './ProfileSidebar';
+
+const { width } = Dimensions.get('window');
+
+const SEARCH_ITEMS = [
+  { id: 'help', title: 'Help & Support', subtitle: 'Get assistance', icon: <HelpCircle size={20} color={Colors.primary} strokeWidth={2} />, route: '/profile/help' },
+  { id: 'report', title: 'Report Issue', subtitle: 'Report a problem', icon: <Flag size={20} color={Colors.semantic.errorAlert} strokeWidth={2} />, route: '/profile/help' },
+  { id: 'feedback', title: 'Send Feedback', subtitle: 'Share your thoughts', icon: <MessageSquare size={20} color={Colors.primary} strokeWidth={2} />, route: '/profile/help' },
+  { id: 'settings', title: 'Settings', subtitle: 'App preferences', icon: <Settings size={20} color={Colors.semantic.tabInactive} strokeWidth={2} />, route: '/profile/settings' },
+  { id: 'profile', title: 'Profile', subtitle: 'Your account', icon: <User size={20} color={Colors.semantic.tabInactive} strokeWidth={2} />, route: '/profile' },
+  { id: 'my-tasks', title: 'My Tasks', subtitle: 'Tasks you posted', icon: <FileText size={20} color={Colors.semantic.tabInactive} strokeWidth={2} />, route: '/profile/my-tasks' },
+  { id: 'task-history', title: 'Task History', subtitle: 'Completed tasks', icon: <FileText size={20} color={Colors.semantic.tabInactive} strokeWidth={2} />, route: '/profile/task-history' },
+];
 
 interface GlobalHeaderProps {
   showSearch?: boolean;
@@ -24,6 +37,11 @@ export default function GlobalHeader({
   const { user, isGuest } = useAuth();
 
   const [showProfileSidebar, setShowProfileSidebar] = React.useState(false);
+  const [headerMode, setHeaderMode] = React.useState<'hustl' | 'wallet' | 'credits'>('hustl');
+  const [showHeaderDropdown, setShowHeaderDropdown] = React.useState(false);
+  const [showSearchModal, setShowSearchModal] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [filteredSearchItems, setFilteredSearchItems] = React.useState(SEARCH_ITEMS);
 
   const triggerHaptics = () => {
     if (Platform.OS !== 'web') {
@@ -47,14 +65,55 @@ export default function GlobalHeader({
     setShowProfileSidebar(true);
   };
 
+  const handleHeaderModePress = () => {
+    triggerHaptics();
+    setShowHeaderDropdown(!showHeaderDropdown);
+  };
+
+  const handleHeaderModeSelect = (mode: 'hustl' | 'wallet' | 'credits') => {
+    triggerHaptics();
+    setHeaderMode(mode);
+    setShowHeaderDropdown(false);
+  };
+
+  const handleSearchPress = () => {
+    triggerHaptics();
+    setShowSearchModal(true);
+  };
+
+  const handleSearchQueryChange = (query: string) => {
+    setSearchQuery(query);
+    
+    if (!query.trim()) {
+      setFilteredSearchItems(SEARCH_ITEMS);
+      return;
+    }
+    
+    const filtered = SEARCH_ITEMS.filter(item =>
+      item.title.toLowerCase().includes(query.toLowerCase()) ||
+      item.subtitle.toLowerCase().includes(query.toLowerCase())
+    );
+    setFilteredSearchItems(filtered);
+  };
+
+  const handleSearchItemPress = (route: string) => {
+    triggerHaptics();
+    setShowSearchModal(false);
+    setSearchQuery('');
+    setFilteredSearchItems(SEARCH_ITEMS);
+    router.push(route as any);
+  };
+
+  const closeSearchModal = () => {
+    setShowSearchModal(false);
+    setSearchQuery('');
+    setFilteredSearchItems(SEARCH_ITEMS);
+  };
+
   const handleProfileLongPress = () => {
     if (isGuest) return;
     // TODO: Implement quick menu
     console.log('Profile long press - show quick menu');
-  };
-
-  const handleSearchPress = () => {
-    console.log('Search pressed');
   };
 
   const handleNotificationsPress = () => {
@@ -69,6 +128,148 @@ export default function GlobalHeader({
       .toUpperCase()
       .slice(0, 2);
   };
+
+  const renderHeaderCenter = () => {
+    const mockCredits = 1250; // $12.50 in cents
+    
+    return (
+      <TouchableOpacity 
+        style={styles.headerCenter} 
+        onPress={handleHeaderModePress}
+        activeOpacity={0.7}
+      >
+        <View style={styles.headerCenterContent}>
+          {headerMode === 'hustl' && (
+            <>
+              <Image
+                source={require('../src/assets/images/image.png')}
+                style={styles.headerLogo}
+                resizeMode="contain"
+              />
+              <Text style={styles.headerBrandText}>Hustl</Text>
+            </>
+          )}
+          
+          {headerMode === 'wallet' && (
+            <>
+              <Wallet size={20} color={Colors.primary} strokeWidth={2} />
+              <Text style={styles.headerModeText}>Wallet</Text>
+            </>
+          )}
+          
+          {headerMode === 'credits' && (
+            <>
+              <DollarSign size={20} color={Colors.semantic.successAlert} strokeWidth={2} />
+              <Text style={styles.headerCreditsText}>${(mockCredits / 100).toFixed(2)}</Text>
+            </>
+          )}
+        </View>
+        
+        <ChevronDown 
+          size={16} 
+          color={Colors.semantic.tabInactive} 
+          strokeWidth={2} 
+        />
+      </TouchableOpacity>
+    );
+  };
+
+  const renderHeaderDropdown = () => {
+    if (!showHeaderDropdown) return null;
+    
+    return (
+      <View style={styles.headerDropdown}>
+        <TouchableOpacity 
+          style={[styles.dropdownItem, headerMode === 'hustl' && styles.activeDropdownItem]}
+          onPress={() => handleHeaderModeSelect('hustl')}
+        >
+          <Image
+            source={require('../src/assets/images/image.png')}
+            style={styles.dropdownIcon}
+            resizeMode="contain"
+          />
+          <Text style={[styles.dropdownText, headerMode === 'hustl' && styles.activeDropdownText]}>
+            Hustl
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.dropdownItem, headerMode === 'wallet' && styles.activeDropdownItem]}
+          onPress={() => handleHeaderModeSelect('wallet')}
+        >
+          <Wallet size={20} color={Colors.primary} strokeWidth={2} />
+          <Text style={[styles.dropdownText, headerMode === 'wallet' && styles.activeDropdownText]}>
+            Wallet
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.dropdownItem, headerMode === 'credits' && styles.activeDropdownItem]}
+          onPress={() => handleHeaderModeSelect('credits')}
+        >
+          <DollarSign size={20} color={Colors.semantic.successAlert} strokeWidth={2} />
+          <Text style={[styles.dropdownText, headerMode === 'credits' && styles.activeDropdownText]}>
+            Credits
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const SearchModal = () => (
+    <Modal
+      visible={showSearchModal}
+      transparent
+      animationType="fade"
+      onRequestClose={closeSearchModal}
+    >
+      <View style={styles.searchOverlay}>
+        <View style={[styles.searchModal, { paddingTop: insets.top + 20 }]}>
+          <View style={styles.searchHeader}>
+            <View style={styles.searchInputContainer}>
+              <Search size={20} color={Colors.semantic.tabInactive} strokeWidth={2} />
+              <TextInput
+                style={styles.searchInput}
+                value={searchQuery}
+                onChangeText={handleSearchQueryChange}
+                placeholder="Search for help, settings, or features..."
+                placeholderTextColor={Colors.semantic.tabInactive}
+                autoFocus
+              />
+            </View>
+            <TouchableOpacity style={styles.searchCloseButton} onPress={closeSearchModal}>
+              <X size={20} color={Colors.semantic.tabInactive} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.searchResults} showsVerticalScrollIndicator={false}>
+            {filteredSearchItems.length > 0 ? (
+              filteredSearchItems.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.searchResultItem}
+                  onPress={() => handleSearchItemPress(item.route)}
+                >
+                  <View style={styles.searchResultIcon}>
+                    {item.icon}
+                  </View>
+                  <View style={styles.searchResultContent}>
+                    <Text style={styles.searchResultTitle}>{item.title}</Text>
+                    <Text style={styles.searchResultSubtitle}>{item.subtitle}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <View style={styles.noResults}>
+                <Text style={styles.noResultsText}>No results found</Text>
+                <Text style={styles.noResultsSubtext}>Try searching for "help", "settings", or "profile"</Text>
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
 
   if (isGuest) {
     return (
@@ -86,11 +287,7 @@ export default function GlobalHeader({
               </View>
             </TouchableOpacity>
             
-            <Image
-              source={require('../src/assets/images/image.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
+            {renderHeaderCenter()}
             
             <View style={styles.rightSection}>
               {showSearch && (
@@ -102,11 +299,15 @@ export default function GlobalHeader({
           </View>
         </View>
         
+        {renderHeaderDropdown()}
+        
         {/* Profile Sidebar */}
         <ProfileSidebar
           visible={showProfileSidebar}
           onClose={() => setShowProfileSidebar(false)}
         />
+        
+        <SearchModal />
       </>
     );
   }
@@ -130,11 +331,7 @@ export default function GlobalHeader({
               </View>
             </TouchableOpacity>
             
-            <Image
-              source={require('../src/assets/images/image.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
+            {renderHeaderCenter()}
           </View>
 
           {title && (
@@ -157,11 +354,15 @@ export default function GlobalHeader({
         </View>
       </View>
       
+      {renderHeaderDropdown()}
+      
       {/* Profile Sidebar */}
       <ProfileSidebar
         visible={showProfileSidebar}
         onClose={() => setShowProfileSidebar(false)}
       />
+      
+      <SearchModal />
     </>
   );
 }
@@ -188,7 +389,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    flex: 1,
   },
   profileChip: {
     borderRadius: 22,
@@ -233,9 +433,86 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#F1F5F9',
   },
-  logo: {
+  headerCenter: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(245, 245, 245, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(229, 231, 235, 0.2)',
+    marginHorizontal: 12,
+  },
+  headerCenterContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  headerLogo: {
     width: 32,
     height: 32,
+  },
+  headerBrandText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.semantic.headingText,
+    letterSpacing: 0.5,
+  },
+  headerModeText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  headerCreditsText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.semantic.successAlert,
+  },
+  headerDropdown: {
+    position: 'absolute',
+    top: 72,
+    left: 16,
+    right: 16,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 12,
+    zIndex: 1000,
+    borderWidth: 1,
+    borderColor: 'rgba(229, 231, 235, 0.5)',
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 12,
+  },
+  activeDropdownItem: {
+    backgroundColor: Colors.primary + '10',
+  },
+  dropdownIcon: {
+    width: 20,
+    height: 20,
+  },
+  dropdownText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: Colors.semantic.bodyText,
+  },
+  activeDropdownText: {
+    color: Colors.primary,
+    fontWeight: '600',
   },
   title: {
     fontSize: 18,
@@ -248,8 +525,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    justifyContent: 'flex-end',
-    flex: 1,
   },
   iconButton: {
     width: 44,
@@ -265,5 +540,96 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 2,
+  },
+  searchOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  searchModal: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    paddingHorizontal: 20,
+  },
+  searchHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
+  searchInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 245, 245, 0.8)',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(229, 231, 235, 0.5)',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: Colors.semantic.inputText,
+  },
+  searchCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(245, 245, 245, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchResults: {
+    flex: 1,
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(229, 231, 235, 0.3)',
+    gap: 16,
+  },
+  searchResultIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(245, 245, 245, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchResultContent: {
+    flex: 1,
+  },
+  searchResultTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.semantic.bodyText,
+    marginBottom: 2,
+  },
+  searchResultSubtitle: {
+    fontSize: 14,
+    color: Colors.semantic.tabInactive,
+  },
+  noResults: {
+    alignItems: 'center',
+    paddingVertical: 60,
+    gap: 12,
+  },
+  noResultsText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.semantic.headingText,
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+    color: Colors.semantic.tabInactive,
+    textAlign: 'center',
   },
 });
