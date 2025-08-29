@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, TextInput, Modal, ScrollView, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Search, Bell, ChevronDown, Wallet, DollarSign, X, HelpCircle, Flag, MessageSquare, Settings, User, FileText } from 'lucide-react-native';
+import { Search, Bell, ChevronDown, Wallet, DollarSign, X, CircleHelp as HelpCircle, Flag, MessageSquare, Settings, User, FileText } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring } from 'react-native-reanimated';
 import { Colors } from '@/theme/colors';
