@@ -1,50 +1,52 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Platform, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Clock, MapPin, Store, User, Camera, Check, ChevronDown } from 'lucide-react-native';
+import { ArrowLeft, Clock, MapPin, Store, ChevronDown, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import * as ImagePicker from 'expo-image-picker';
-import { ReviewRepo } from '@/lib/reviewRepo';
-import { TaskReview } from '@/types/database';
-import ReviewSheet from '@/components/ReviewSheet';
-import StarRating from '@/components/StarRating';
 import { Colors } from '@/theme/colors';
 import { useAuth } from '@/contexts/AuthContext';
-import { TaskRepo } from '@/lib/taskRepo';
-import { Task, TaskCurrentStatus, TaskStatusHistory } from '@/types/database';
+import { supabase } from '@/lib/supabase';
 import Toast from '@/components/Toast';
 
-const STATUS_FLOW: { value: TaskCurrentStatus; label: string; description: string }[] = [
-  { value: 'accepted', label: 'Accepted', description: 'Task has been accepted' },
-  { value: 'picked_up', label: 'Picked Up', description: 'Items have been collected' },
-  { value: 'on_the_way', label: 'On the Way', description: 'Heading to delivery location' },
-  { value: 'delivered', label: 'Delivered', description: 'Items have been delivered' },
-  { value: 'completed', label: 'Completed', description: 'Task is complete' },
+type TaskStatus = 'posted' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  store: string;
+  dropoff_address: string;
+  dropoff_instructions: string;
+  reward_cents: number;
+  estimated_minutes: number;
+  status: TaskStatus;
+  created_by: string;
+  assignee_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+const STATUS_FLOW: { value: TaskStatus; label: string; color: string }[] = [
+  { value: 'posted', label: 'Posted', color: Colors.semantic.tabInactive },
+  { value: 'accepted', label: 'Accepted', color: Colors.semantic.acceptedBadge },
+  { value: 'in_progress', label: 'In Progress', color: Colors.semantic.inProgressBadge },
+  { value: 'completed', label: 'Completed', color: Colors.semantic.completedBadge },
+  { value: 'cancelled', label: 'Cancelled', color: Colors.semantic.errorAlert },
 ];
 
 export default function TaskDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
-  const { user, isGuest } = useAuth();
+  const { user } = useAuth();
   
   const taskId = params.id as string;
   
-  // State
   const [task, setTask] = useState<Task | null>(null);
-  const [statusHistory, setStatusHistory] = useState<TaskStatusHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-  const [deliveryNote, setDeliveryNote] = useState('');
-  const [deliveryPhoto, setDeliveryPhoto] = useState<string | null>(null);
-  const [showDeliveryForm, setShowDeliveryForm] = useState(false);
-  const [taskReview, setTaskReview] = useState<TaskReview | null>(null);
-  const [showReviewSheet, setShowReviewSheet] = useState(false);
-  const [canReview, setCanReview] = useState(false);
-  
-  // Toast state
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [showStatusSheet, setShowStatusSheet] = useState(false);
   const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' }>({
     visible: false,
     message: '',
@@ -52,61 +54,40 @@ export default function TaskDetailScreen() {
   });
 
   useEffect(() => {
-    loadTaskDetails();
-    checkReviewEligibility();
+    loadTask();
+    setupRealtimeSubscription();
+    
+    return () => {
+      // Cleanup subscription
+      supabase.removeAllChannels();
+    };
   }, [taskId]);
 
-  const loadTaskDetails = async () => {
+  const loadTask = async () => {
     if (!taskId) return;
     
-    setIsLoading(true);
-    
     try {
-      // Load task details
-      const { data: taskData, error: taskError } = await TaskRepo.getTaskByIdSafe(taskId);
-      
-      if (taskError) {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('id', taskId)
+        .limit(1);
+
+      if (error) {
         setToast({
           visible: true,
-          message: taskError,
+          message: 'Failed to load task',
           type: 'error'
         });
         return;
       }
-      
-      if (!taskData) {
-        setToast({
-          visible: true,
-          message: 'Task not found',
-          type: 'error'
-        });
-        return;
-      }
-      
+
+      const taskData = data?.[0] ?? null;
       setTask(taskData);
-      
-      // Load status history
-      const { data: historyData, error: historyError } = await TaskRepo.getTaskStatusHistory(taskId);
-      
-      if (historyData) {
-        setStatusHistory(historyData);
-      }
-      
-      if (historyError) {
-        console.warn('Failed to load status history:', historyError);
-      }
-      
-      // Load existing review if any
-      if (taskData.status === 'completed') {
-        const { data: reviewData } = await ReviewRepo.getTaskReview(taskId);
-        if (reviewData) {
-          setTaskReview(reviewData);
-        }
-      }
     } catch (error) {
       setToast({
         visible: true,
-        message: 'Failed to load task details',
+        message: 'Network error',
         type: 'error'
       });
     } finally {
@@ -114,149 +95,98 @@ export default function TaskDetailScreen() {
     }
   };
 
-  const checkReviewEligibility = async () => {
-    if (!taskId || !user) return;
-    
-    try {
-      const { canReview: eligible } = await ReviewRepo.canReviewTask(taskId);
-      setCanReview(eligible);
-    } catch (error) {
-      console.warn('Failed to check review eligibility:', error);
-    }
+  const setupRealtimeSubscription = () => {
+    const channel = supabase
+      .channel(`task_${taskId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tasks',
+          filter: `id=eq.${taskId}`
+        },
+        (payload) => {
+          setTask(payload.new as Task);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
   };
 
   const triggerHaptics = () => {
     if (Platform.OS !== 'web') {
       try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } catch (error) {
         // Haptics not available, continue silently
       }
     }
   };
 
-  const handleStatusUpdate = async (newStatus: TaskCurrentStatus, note?: string, photoUrl?: string) => {
-    if (!task || !user || isUpdatingStatus) return;
+  const getValidNextStatuses = (currentStatus: TaskStatus): TaskStatus[] => {
+    const validTransitions: Record<TaskStatus, TaskStatus[]> = {
+      posted: ['accepted', 'cancelled'],
+      accepted: ['in_progress', 'cancelled'],
+      in_progress: ['completed', 'cancelled'],
+      completed: [],
+      cancelled: []
+    };
+
+    return validTransitions[currentStatus] || [];
+  };
+
+  const canUpdateStatus = (): boolean => {
+    if (!task || !user) return false;
+    return task.created_by === user.id || task.assignee_id === user.id;
+  };
+
+  const handleStatusUpdate = async (newStatus: TaskStatus) => {
+    if (!task || isUpdating) return;
     
     triggerHaptics();
-    setIsUpdatingStatus(true);
+    setIsUpdating(true);
+    setShowStatusSheet(false);
     
+    // Optimistic update
+    const previousTask = { ...task };
+    setTask({ ...task, status: newStatus, updated_at: new Date().toISOString() });
+
     try {
-      const { data, error } = await TaskRepo.updateTaskStatus({
-        taskId: task.id,
-        newStatus,
-        note: note || '',
-        photoUrl: photoUrl || ''
+      const { data, error } = await supabase.rpc('update_task_status', {
+        task_id: taskId,
+        new_status: newStatus
       });
-      
+
       if (error) {
+        // Revert optimistic update
+        setTask(previousTask);
         setToast({
           visible: true,
-          message: error,
+          message: 'Couldn\'t update status',
           type: 'error'
         });
         return;
       }
-      
-      // Update local task state optimistically
-      setTask(prev => prev ? {
-        ...prev,
-        current_status: newStatus,
-        last_status_update: new Date().toISOString(),
-        status: newStatus === 'completed' ? 'completed' : prev.status
-      } : null);
-      
-      // Add to status history
-      const newHistoryItem: TaskStatusHistory = {
-        id: Date.now().toString(), // Temporary ID
-        task_id: task.id,
-        status: newStatus,
-        changed_by: {
-          id: user.id,
-          full_name: user.displayName,
-          username: null
-        },
-        note: note || '',
-        photo_url: photoUrl || '',
-        created_at: new Date().toISOString()
-      };
-      
-      setStatusHistory(prev => [...prev, newHistoryItem]);
-      
+
       setToast({
         visible: true,
-        message: `Status updated to ${TaskRepo.formatCurrentStatus(newStatus)}`,
+        message: 'Status updated',
         type: 'success'
       });
-      
-      // Close forms
-      setShowStatusDropdown(false);
-      setShowDeliveryForm(false);
-      setDeliveryNote('');
-      setDeliveryPhoto(null);
-      
-      // Reload to get fresh data
-      setTimeout(() => {
-        loadTaskDetails();
-        checkReviewEligibility();
-      }, 1000);
-      
     } catch (error) {
+      // Revert optimistic update
+      setTask(previousTask);
       setToast({
         visible: true,
-        message: 'Failed to update status. Please try again.',
+        message: 'Network error',
         type: 'error'
       });
     } finally {
-      setIsUpdatingStatus(false);
-    }
-  };
-
-  const handleQuickStatusUpdate = (newStatus: TaskCurrentStatus) => {
-    if (newStatus === 'delivered') {
-      setShowDeliveryForm(true);
-      setShowStatusDropdown(false);
-    } else {
-      handleStatusUpdate(newStatus);
-    }
-  };
-
-  const handleDeliverySubmit = () => {
-    handleStatusUpdate('delivered', deliveryNote, deliveryPhoto);
-  };
-
-  const handleReviewSubmitted = () => {
-    setToast({
-      visible: true,
-      message: 'Review submitted successfully!',
-      type: 'success'
-    });
-    
-    // Reload task details to get the new review
-    loadTaskDetails();
-    checkReviewEligibility();
-  };
-
-  const handleTakePhoto = async () => {
-    try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Camera permission is required to take photos.');
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setDeliveryPhoto(result.assets[0].uri);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to take photo. Please try again.');
+      setIsUpdating(false);
     }
   };
 
@@ -268,19 +198,20 @@ export default function TaskDetailScreen() {
     setToast(prev => ({ ...prev, visible: false }));
   };
 
-  const formatTimestamp = (timestamp: string): string => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
-    if (diffInHours < 1) {
-      const diffInMinutes = Math.floor(diffInHours * 60);
-      return `${diffInMinutes}m ago`;
-    } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)}h ago`;
-    } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    }
+  const formatReward = (cents: number): string => {
+    return `$${(cents / 100).toFixed(0)}`;
+  };
+
+  const formatEstimatedTime = (minutes: number): string => {
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    if (remainingMinutes === 0) return `${hours}h`;
+    return `${hours}h ${remainingMinutes}m`;
+  };
+
+  const getStatusInfo = (status: TaskStatus) => {
+    return STATUS_FLOW.find(s => s.value === status) || STATUS_FLOW[0];
   };
 
   if (isLoading) {
@@ -294,8 +225,8 @@ export default function TaskDetailScreen() {
           <View style={styles.placeholder} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Loading task details...</Text>
+          <ActivityIndicator size="large" color={Colors.semantic.primaryButton} />
+          <Text style={styles.loadingText}>Loading task...</Text>
         </View>
       </View>
     );
@@ -318,16 +249,13 @@ export default function TaskDetailScreen() {
     );
   }
 
-  const canUpdateStatus = user && task.accepted_by === user.id && task.status === 'accepted';
-  const nextStatus = task.current_status ? TaskRepo.getNextStatus(task.current_status) : null;
-  const showStatusUpdate = canUpdateStatus && nextStatus;
-  const isTaskPoster = user && task.created_by === user.id;
-  const showReviewButton = canReview && isTaskPoster && task.status === 'completed' && !taskReview;
+  const statusInfo = getStatusInfo(task.status);
+  const validNextStatuses = getValidNextStatuses(task.status);
+  const showUpdateButton = canUpdateStatus() && validNextStatuses.length > 0;
 
   return (
     <>
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <ArrowLeft size={24} color={Colors.white} strokeWidth={2} />
@@ -337,100 +265,50 @@ export default function TaskDetailScreen() {
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Task Info */}
           <View style={styles.taskCard}>
             <View style={styles.taskHeader}>
               <Text style={styles.taskTitle}>{task.title}</Text>
-              <Text style={styles.taskReward}>
-                {TaskRepo.formatReward(task.reward_cents)}
+              <Text style={styles.taskReward}>{formatReward(task.reward_cents)}</Text>
+            </View>
+
+            {/* Current Status */}
+            <View style={styles.statusContainer}>
+              <View style={[styles.statusPill, { backgroundColor: statusInfo.color + '20' }]}>
+                <View style={[styles.statusDot, { backgroundColor: statusInfo.color }]} />
+                <Text style={[styles.statusText, { color: statusInfo.color }]}>
+                  {statusInfo.label}
+                </Text>
+              </View>
+              <Text style={styles.lastUpdated}>
+                Updated {new Date(task.updated_at).toLocaleTimeString([], { 
+                  hour: '2-digit', 
+                  minute: '2-digit' 
+                })}
               </Text>
             </View>
-            
+
+            {/* Update Status Button */}
+            {showUpdateButton && (
+              <TouchableOpacity
+                style={[styles.updateButton, isUpdating && styles.updateButtonDisabled]}
+                onPress={() => setShowStatusSheet(true)}
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <ActivityIndicator size="small" color={Colors.white} />
+                ) : (
+                  <>
+                    <Text style={styles.updateButtonText}>Update Status</Text>
+                    <ChevronDown size={16} color={Colors.white} strokeWidth={2} />
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+
             {task.description && (
               <Text style={styles.taskDescription}>{task.description}</Text>
             )}
-            
-            {/* Current Status */}
-            {task.current_status && (
-              <View style={styles.currentStatusContainer}>
-                <Text style={styles.sectionTitle}>Current Status</Text>
-                <View style={[
-                  styles.currentStatusBadge,
-                  { backgroundColor: TaskRepo.getCurrentStatusColor(task.current_status) + '20' }
-                ]}>
-                  <View style={[
-                    styles.currentStatusDot,
-                    { backgroundColor: TaskRepo.getCurrentStatusColor(task.current_status) }
-                  ]} />
-                  <Text style={[
-                    styles.currentStatusText,
-                    { color: TaskRepo.getCurrentStatusColor(task.current_status) }
-                  ]}>
-                    {TaskRepo.formatCurrentStatus(task.current_status)}
-                  </Text>
-                </View>
-                {task.last_status_update && (
-                  <Text style={styles.lastUpdatedDetail}>
-                    Last updated {formatTimestamp(task.last_status_update)}
-                  </Text>
-                )}
-              </View>
-            )}
-            
-            {/* Status Update Controls */}
-            {showStatusUpdate && (
-              <View style={styles.statusUpdateSection}>
-                <Text style={styles.sectionTitle}>Update Status</Text>
-                
-                <TouchableOpacity
-                  style={[
-                    styles.statusUpdateButton,
-                    isUpdatingStatus && styles.statusUpdateButtonDisabled
-                  ]}
-                  onPress={() => setShowStatusDropdown(!showStatusDropdown)}
-                  disabled={isUpdatingStatus}
-                >
-                  <Text style={styles.statusUpdateButtonText}>
-                    {isUpdatingStatus ? 'Updating...' : `Mark as ${TaskRepo.formatCurrentStatus(nextStatus!)}`}
-                  </Text>
-                  {!isUpdatingStatus && (
-                    <ChevronDown size={16} color={Colors.white} strokeWidth={2} />
-                  )}
-                  {isUpdatingStatus && (
-                    <ActivityIndicator size="small" color={Colors.white} />
-                  )}
-                </TouchableOpacity>
-                
-                {showStatusDropdown && !isUpdatingStatus && (
-                  <View style={styles.statusDropdown}>
-                    {STATUS_FLOW
-                      .filter(status => {
-                        const currentIndex = STATUS_FLOW.findIndex(s => s.value === task.current_status);
-                        const statusIndex = STATUS_FLOW.findIndex(s => s.value === status.value);
-                        return statusIndex === currentIndex + 1; // Only show next status
-                      })
-                      .map((status) => (
-                        <TouchableOpacity
-                          key={status.value}
-                          style={styles.statusOption}
-                          onPress={() => handleQuickStatusUpdate(status.value)}
-                        >
-                          <View style={[
-                            styles.statusOptionDot,
-                            { backgroundColor: TaskRepo.getCurrentStatusColor(status.value) }
-                          ]} />
-                          <View style={styles.statusOptionText}>
-                            <Text style={styles.statusOptionLabel}>{status.label}</Text>
-                            <Text style={styles.statusOptionDescription}>{status.description}</Text>
-                          </View>
-                        </TouchableOpacity>
-                      ))}
-                  </View>
-                )}
-              </View>
-            )}
-            
-            {/* Task Details */}
+
             <View style={styles.taskDetails}>
               <View style={styles.detailRow}>
                 <Store size={20} color={Colors.semantic.tabInactive} strokeWidth={2} />
@@ -452,160 +330,63 @@ export default function TaskDetailScreen() {
               <View style={styles.detailRow}>
                 <Clock size={20} color={Colors.semantic.tabInactive} strokeWidth={2} />
                 <Text style={styles.detailText}>
-                  {TaskRepo.formatEstimatedTime(task.estimated_minutes)}
+                  {formatEstimatedTime(task.estimated_minutes)}
                 </Text>
               </View>
             </View>
           </View>
-          
-          {/* Review Section */}
-          {task.status === 'completed' && (
-            <View style={styles.reviewCard}>
-              <Text style={styles.sectionTitle}>Review</Text>
-              
-              {taskReview ? (
-                <View style={styles.reviewDisplay}>
-                  <View style={styles.reviewHeader}>
-                    <StarRating rating={taskReview.stars} size={18} />
-                    <Text style={styles.reviewDate}>
-                      {new Date(taskReview.created_at).toLocaleDateString()}
-                    </Text>
-                  </View>
-                  
-                  {taskReview.tags && taskReview.tags.length > 0 && (
-                    <View style={styles.reviewTags}>
-                      {taskReview.tags.map((tag, index) => (
-                        <View key={index} style={styles.reviewTag}>
-                          <Text style={styles.reviewTagText}>{tag}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                  
-                  {taskReview.comment && (
-                    <Text style={styles.reviewComment}>"{taskReview.comment}"</Text>
-                  )}
-                  
-                  {taskReview.edited_at && (
-                    <Text style={styles.reviewEdited}>
-                      Edited {new Date(taskReview.edited_at).toLocaleDateString()}
-                    </Text>
-                  )}
-                </View>
-              ) : showReviewButton ? (
-                <TouchableOpacity
-                  style={styles.reviewButton}
-                  onPress={() => setShowReviewSheet(true)}
-                >
-                  <Text style={styles.reviewButtonText}>Leave a Review</Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={styles.noReviewText}>
-                  {isTaskPoster ? 'Review period has ended' : 'No review yet'}
-                </Text>
-              )}
-            </View>
-          )}
-          
-          {/* Status History */}
-          {statusHistory.length > 0 && (
-            <View style={styles.historyCard}>
-              <Text style={styles.sectionTitle}>Status History</Text>
-              <View style={styles.historyList}>
-                {statusHistory.map((item, index) => (
-                  <View key={item.id} style={styles.historyItem}>
-                    <View style={[
-                      styles.historyDot,
-                      { backgroundColor: TaskRepo.getCurrentStatusColor(item.status) }
-                    ]} />
-                    <View style={styles.historyContent}>
-                      <View style={styles.historyHeader}>
-                        <Text style={styles.historyStatus}>
-                          {TaskRepo.formatCurrentStatus(item.status)}
-                        </Text>
-                        <Text style={styles.historyTime}>
-                          {formatTimestamp(item.created_at)}
-                        </Text>
-                      </View>
-                      <Text style={styles.historyUser}>
-                        by {item.changed_by.full_name || item.changed_by.username || 'User'}
-                      </Text>
-                      {item.note && (
-                        <Text style={styles.historyNote}>{item.note}</Text>
-                      )}
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
         </ScrollView>
       </View>
 
-      {/* Delivery Form Modal */}
-      {showDeliveryForm && (
-        <View style={styles.modalOverlay}>
-          <View style={[styles.deliveryModal, { paddingBottom: insets.bottom + 24 }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Mark as Delivered</Text>
-              <TouchableOpacity onPress={() => setShowDeliveryForm(false)}>
-                <Text style={styles.modalCancel}>Cancel</Text>
+      {/* Status Update Sheet */}
+      <Modal
+        visible={showStatusSheet}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowStatusSheet(false)}
+      >
+        <View style={styles.sheetOverlay}>
+          <View style={[styles.statusSheet, { paddingBottom: insets.bottom + 24 }]}>
+            <View style={styles.sheetHeader}>
+              <View style={styles.dragHandle} />
+              <TouchableOpacity 
+                style={styles.sheetCloseButton} 
+                onPress={() => setShowStatusSheet(false)}
+              >
+                <X size={20} color={Colors.semantic.tabInactive} strokeWidth={2} />
               </TouchableOpacity>
             </View>
-            
-            <View style={styles.modalContent}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Delivery Note (Optional)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={deliveryNote}
-                  onChangeText={setDeliveryNote}
-                  placeholder="Add any delivery notes..."
-                  placeholderTextColor={Colors.semantic.tabInactive}
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
+
+            <View style={styles.sheetContent}>
+              <Text style={styles.sheetTitle}>Update Status</Text>
               
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Photo Proof (Optional)</Text>
-                <TouchableOpacity style={styles.photoButton} onPress={handleTakePhoto}>
-                  <Camera size={20} color={Colors.primary} strokeWidth={2} />
-                  <Text style={styles.photoButtonText}>
-                    {deliveryPhoto ? 'Photo Added' : 'Take Photo'}
-                  </Text>
-                </TouchableOpacity>
+              <View style={styles.statusOptions}>
+                {validNextStatuses.map((status) => {
+                  const statusInfo = getStatusInfo(status);
+                  return (
+                    <TouchableOpacity
+                      key={status}
+                      style={[
+                        styles.statusOption,
+                        status === 'cancelled' && styles.cancelledOption
+                      ]}
+                      onPress={() => handleStatusUpdate(status)}
+                    >
+                      <View style={[styles.statusOptionDot, { backgroundColor: statusInfo.color }]} />
+                      <Text style={[
+                        styles.statusOptionText,
+                        status === 'cancelled' && styles.cancelledOptionText
+                      ]}>
+                        {statusInfo.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-              
-              <TouchableOpacity
-                style={[
-                  styles.deliverySubmitButton,
-                  isUpdatingStatus && styles.deliverySubmitButtonDisabled
-                ]}
-                onPress={handleDeliverySubmit}
-                disabled={isUpdatingStatus}
-              >
-                {isUpdatingStatus ? (
-                  <ActivityIndicator size="small" color={Colors.white} />
-                ) : (
-                  <>
-                    <Check size={16} color={Colors.white} strokeWidth={2} />
-                    <Text style={styles.deliverySubmitText}>Mark as Delivered</Text>
-                  </>
-                )}
-              </TouchableOpacity>
             </View>
           </View>
         </View>
-      )}
-
-      {/* Review Sheet */}
-      <ReviewSheet
-        visible={showReviewSheet}
-        onClose={() => setShowReviewSheet(false)}
-        task={task}
-        onReviewSubmitted={handleReviewSubmitted}
-      />
+      </Modal>
 
       <Toast
         visible={toast.visible}
@@ -628,7 +409,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.semantic.primaryButton,
   },
   backButton: {
     width: 40,
@@ -665,18 +446,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
   },
   errorText: {
     fontSize: 18,
     color: Colors.semantic.errorAlert,
-    textAlign: 'center',
   },
   taskCard: {
     backgroundColor: Colors.semantic.card,
     borderRadius: 16,
     padding: 20,
-    marginBottom: 16,
     borderWidth: 1,
     borderColor: Colors.semantic.cardBorder,
     shadowColor: '#000',
@@ -701,99 +479,59 @@ const styles = StyleSheet.create({
   taskReward: {
     fontSize: 24,
     fontWeight: '700',
-    color: Colors.secondary,
+    color: Colors.semantic.secondaryButton,
+  },
+  statusContainer: {
+    marginBottom: 20,
+    gap: 8,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  lastUpdated: {
+    fontSize: 12,
+    color: Colors.semantic.tabInactive,
+    fontStyle: 'italic',
+  },
+  updateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.semantic.primaryButton,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 20,
+    gap: 8,
+  },
+  updateButtonDisabled: {
+    backgroundColor: Colors.semantic.tabInactive,
+  },
+  updateButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.white,
   },
   taskDescription: {
     fontSize: 16,
     color: Colors.semantic.bodyText,
     lineHeight: 24,
     marginBottom: 20,
-  },
-  currentStatusContainer: {
-    marginBottom: 24,
-    gap: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.semantic.headingText,
-  },
-  currentStatusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 10,
-  },
-  currentStatusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  currentStatusText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  lastUpdatedDetail: {
-    fontSize: 14,
-    color: Colors.semantic.tabInactive,
-    fontStyle: 'italic',
-  },
-  statusUpdateSection: {
-    marginBottom: 24,
-    gap: 12,
-  },
-  statusUpdateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    gap: 8,
-  },
-  statusUpdateButtonDisabled: {
-    backgroundColor: Colors.semantic.tabInactive,
-  },
-  statusUpdateButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.white,
-  },
-  statusDropdown: {
-    backgroundColor: Colors.semantic.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.semantic.cardBorder,
-    overflow: 'hidden',
-  },
-  statusOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.semantic.divider,
-    gap: 12,
-  },
-  statusOptionDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  statusOptionText: {
-    flex: 1,
-  },
-  statusOptionLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.semantic.bodyText,
-    marginBottom: 2,
-  },
-  statusOptionDescription: {
-    fontSize: 14,
-    color: Colors.semantic.tabInactive,
   },
   taskDetails: {
     gap: 16,
@@ -820,215 +558,81 @@ const styles = StyleSheet.create({
     color: Colors.semantic.bodyText,
     fontStyle: 'italic',
   },
-  historyCard: {
-    backgroundColor: Colors.semantic.card,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: Colors.semantic.cardBorder,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  historyList: {
-    marginTop: 16,
-    gap: 16,
-  },
-  historyItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  historyDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginTop: 4,
-  },
-  historyContent: {
+  sheetOverlay: {
     flex: 1,
-  },
-  historyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  historyStatus: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.semantic.bodyText,
-  },
-  historyTime: {
-    fontSize: 12,
-    color: Colors.semantic.tabInactive,
-  },
-  historyUser: {
-    fontSize: 14,
-    color: Colors.semantic.tabInactive,
-    marginBottom: 4,
-  },
-  historyNote: {
-    fontSize: 14,
-    color: Colors.semantic.bodyText,
-    fontStyle: 'italic',
-  },
-  modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
-  deliveryModal: {
+  statusSheet: {
     backgroundColor: Colors.semantic.screen,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingTop: 24,
+    paddingTop: 12,
+  },
+  sheetHeader: {
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+    position: 'relative',
+  },
+  dragHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: Colors.semantic.tabInactive + '40',
+    borderRadius: 2,
+    marginBottom: 16,
+  },
+  sheetCloseButton: {
+    position: 'absolute',
+    top: 12,
+    right: 16,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.semantic.inputBackground,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sheetContent: {
     paddingHorizontal: 24,
   },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  modalTitle: {
+  sheetTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: Colors.semantic.headingText,
+    textAlign: 'center',
+    marginBottom: 24,
   },
-  modalCancel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.semantic.tabInactive,
+  statusOptions: {
+    gap: 12,
+    marginBottom: 24,
   },
-  modalContent: {
-    gap: 20,
-  },
-  inputGroup: {
-    gap: 8,
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.semantic.bodyText,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: Colors.semantic.inputBorder,
+  statusOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.semantic.card,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    fontSize: 16,
-    color: Colors.semantic.inputText,
-    backgroundColor: Colors.semantic.inputBackground,
-    textAlignVertical: 'top',
-  },
-  photoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    gap: 8,
-  },
-  photoButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  deliverySubmitButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.semantic.successAlert,
-    borderRadius: 12,
-    paddingVertical: 16,
-    gap: 8,
-  },
-  deliverySubmitButtonDisabled: {
-    backgroundColor: Colors.semantic.tabInactive,
-  },
-  deliverySubmitText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.white,
-  },
-  reviewCard: {
-    backgroundColor: Colors.semantic.card,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
     borderWidth: 1,
     borderColor: Colors.semantic.cardBorder,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  reviewDisplay: {
     gap: 12,
   },
-  reviewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  cancelledOption: {
+    borderColor: Colors.semantic.errorAlert + '40',
+    backgroundColor: Colors.semantic.errorAlert + '10',
   },
-  reviewDate: {
-    fontSize: 12,
-    color: Colors.semantic.tabInactive,
+  statusOptionDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
-  reviewTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  reviewTag: {
-    backgroundColor: Colors.muted,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  reviewTagText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: Colors.semantic.bodyText,
-  },
-  reviewComment: {
-    fontSize: 14,
-    color: Colors.semantic.bodyText,
-    fontStyle: 'italic',
-    lineHeight: 20,
-  },
-  reviewEdited: {
-    fontSize: 12,
-    color: Colors.semantic.tabInactive,
-    fontStyle: 'italic',
-  },
-  reviewButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  reviewButtonText: {
-    fontSize: 14,
+  statusOptionText: {
+    fontSize: 16,
     fontWeight: '600',
-    color: Colors.white,
+    color: Colors.semantic.bodyText,
   },
-  noReviewText: {
-    fontSize: 14,
-    color: Colors.semantic.tabInactive,
-    textAlign: 'center',
-    fontStyle: 'italic',
+  cancelledOptionText: {
+    color: Colors.semantic.errorAlert,
   },
 });
