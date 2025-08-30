@@ -237,7 +237,7 @@ export default function WelcomeScreen() {
           resizeMode="cover"
         />
         <LinearGradient
-          colors={['rgba(0, 33, 165, 0.85)', 'rgba(250, 70, 22, 0.75)']}
+          colors={[Colors.primary + 'D9', Colors.secondary + 'BF']} // 85% and 75% opacity
           style={styles.backgroundOverlay}
         />
       </View>
@@ -285,7 +285,7 @@ export default function WelcomeScreen() {
           style={styles.primaryButtonContainer}
         >
           <LinearGradient
-            colors={['#FA4616', '#0021A5']}
+            colors={[Colors.secondary, Colors.primary]}
             start={{ x: 0, y: 0.5 }}
             end={{ x: 1, y: 0.5 }}
             style={styles.primaryButton}
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   logoContainer: {
-    shadowColor: '#FA4616',
+    shadowColor: Colors.secondary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 20,
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     left: -120,
     width: 120,
     height: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: Colors.white + '4D', // 30% opacity
     transform: [{ skewX: '-20deg' }],
   },
   welcomeSection: {
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
   primaryButtonContainer: {
-    shadowColor: '#FA4616',
+    shadowColor: Colors.secondary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 16,
