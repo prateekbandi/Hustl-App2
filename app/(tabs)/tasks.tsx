@@ -293,12 +293,12 @@ export default function TasksScreen() {
     const canAccept = activeTab === 'available' && !isOwnTask && !isGuest && user;
     const canChat = task.status === 'accepted' && user && 
       (task.created_by === user.id || task.accepted_by === user.id);
-    const canUpdateStatus = activeTab === 'doing' && user && task.accepted_by === user.id && 
-      task.status === 'accepted' && task.current_status !== 'completed';
+    const canUpdateStatus = activeTab === 'doing' && user && task.accepted_by === user.id;
     const canReview = activeTab === 'posts' && user && task.created_by === user.id && task.status === 'completed';
 
     return (
       <View key={task.id} style={styles.taskCard}>
+        {/* Header Row */}
         <View style={styles.taskHeader}>
           <View style={styles.taskTitleContainer}>
             <Text style={styles.taskTitle}>{task.title}</Text>
@@ -313,41 +313,13 @@ export default function TasksScreen() {
           </Text>
         </View>
         
+        {/* Body Section */}
         {task.description ? (
           <Text style={styles.taskDescription} numberOfLines={2}>
             {task.description}
           </Text>
         ) : null}
         
-        {/* Current Status Display */}
-        {task.current_status && task.current_status !== 'accepted' && (
-          <View style={styles.statusContainer}>
-            <View style={[
-              styles.statusBadge,
-              { backgroundColor: TaskRepo.getCurrentStatusColor(task.current_status) + '20' }
-            ]}>
-              <View style={[
-                styles.statusDot,
-                { backgroundColor: TaskRepo.getCurrentStatusColor(task.current_status) }
-              ]} />
-              <Text style={[
-                styles.statusText,
-                { color: TaskRepo.getCurrentStatusColor(task.current_status) }
-              ]}>
-                {TaskRepo.formatCurrentStatus(task.current_status)}
-              </Text>
-            </View>
-            {task.last_status_update && (
-              <Text style={styles.lastUpdated}>
-                Updated {new Date(task.last_status_update).toLocaleTimeString([], { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })}
-              </Text>
-            )}
-          </View>
-        )}
-
         <View style={styles.taskDetails}>
           <View style={styles.detailRow}>
             <Store size={16} color={Colors.semantic.tabInactive} strokeWidth={2} />
@@ -362,8 +334,9 @@ export default function TasksScreen() {
           </View>
         </View>
         
-        <View style={styles.taskMeta}>
-          <View style={styles.metaLeft}>
+        {/* Footer Row */}
+        <View style={styles.taskFooter}>
+          <View style={styles.footerLeft}>
             <View style={styles.metaItem}>
               <Clock size={16} color={Colors.semantic.tabInactive} strokeWidth={2} />
               <Text style={styles.metaText}>
@@ -382,7 +355,7 @@ export default function TasksScreen() {
             </View>
           </View>
           
-          <View style={styles.actionButtons}>
+          <View style={styles.footerRight}>
             {canAccept && (
               <TouchableOpacity 
                 style={[
@@ -391,6 +364,9 @@ export default function TasksScreen() {
                 ]}
                 onPress={() => handleAcceptTask(task)}
                 disabled={isAccepting}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                accessibilityLabel="Accept Task"
+                accessibilityRole="button"
               >
                 <Text style={styles.acceptButtonText}>
                   {isAccepting ? 'Accepting...' : 'Accept Task'}
@@ -402,11 +378,11 @@ export default function TasksScreen() {
               <TouchableOpacity 
                 style={styles.statusButton}
                 onPress={() => router.push(`/task/${task.id}`)}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                 accessibilityLabel={`Update status for ${task.title}`}
                 accessibilityRole="button"
               >
                 <Text style={styles.statusButtonText}>Update Status</Text>
-                <ChevronRight size={14} color={Colors.primary} strokeWidth={2} />
               </TouchableOpacity>
             )}
 
@@ -414,9 +390,11 @@ export default function TasksScreen() {
               <TouchableOpacity 
                 style={styles.chatButton}
                 onPress={() => handleChatPress(task)}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                accessibilityLabel="Open chat"
+                accessibilityRole="button"
               >
                 <MessageCircle size={16} color={Colors.primary} strokeWidth={2} />
-                <Text style={styles.chatButtonText}>Chat</Text>
               </TouchableOpacity>
             )}
 
@@ -427,18 +405,21 @@ export default function TasksScreen() {
                   setTaskToReview(task);
                   setShowReviewSheet(true);
                 }}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                accessibilityLabel="Leave review"
+                accessibilityRole="button"
               >
-                <Text style={styles.reviewButtonText}>Review</Text>
+                <Text style={styles.reviewButtonText}>Leave Review</Text>
               </TouchableOpacity>
             )}
           </View>
-          
-          {isOwnTask && activeTab === 'available' && (
-            <View style={styles.ownTaskIndicator}>
-              <Text style={styles.ownTaskText}>Your task</Text>
-            </View>
-          )}
         </View>
+        
+        {isOwnTask && activeTab === 'available' && (
+          <View style={styles.ownTaskIndicator}>
+            <Text style={styles.ownTaskText}>Your task</Text>
+          </View>
+        )}
       </View>
     );
   };
@@ -740,7 +721,7 @@ const styles = StyleSheet.create({
     width: '48%',
     backgroundColor: Colors.semantic.card,
     borderRadius: 20,
-    padding: 20,
+    padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(229, 231, 235, 0.5)',
     shadowColor: '#000',
@@ -749,131 +730,132 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 6,
     marginBottom: 12,
-  },
-  statusContainer: {
-    marginBottom: 16,
-    gap: 8,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 8,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  lastUpdated: {
-    fontSize: 12,
-    color: Colors.semantic.tabInactive,
-    fontStyle: 'italic',
+    overflow: 'hidden',
+    minHeight: 200,
+    justifyContent: 'space-between',
   },
   taskHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   taskTitleContainer: {
     flex: 1,
-    marginRight: 12,
+    marginRight: 8,
   },
   taskTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: Colors.semantic.bodyText,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   categoryBadge: {
     backgroundColor: Colors.muted,
-    borderRadius: 6,
-    paddingHorizontal: 8,
+    borderRadius: 4,
+    paddingHorizontal: 6,
     paddingVertical: 2,
     alignSelf: 'flex-start',
   },
   categoryText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
     color: Colors.semantic.tabInactive,
   },
   taskReward: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: Colors.secondary,
   },
   taskDescription: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.semantic.tabInactive,
     lineHeight: 20,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   taskDetails: {
-    gap: 8,
-    marginBottom: 16,
+    gap: 6,
+    marginBottom: 12,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   detailText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.semantic.bodyText,
   },
-  taskMeta: {
+  taskFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(229, 231, 235, 0.3)',
   },
-  metaLeft: {
+  footerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
+    flex: 1,
+  },
+  footerRight: {
+    marginLeft: 8,
   },
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   urgencyContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   urgencyDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   metaText: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.semantic.tabInactive,
     fontWeight: '500',
   },
-  actionButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statusButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  acceptButton: {
     backgroundColor: Colors.semantic.primaryButton,
-    borderRadius: 12,
+    borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    minHeight: 40,
-    gap: 4,
+    minHeight: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  acceptButtonLoading: {
+    backgroundColor: Colors.semantic.tabInactive,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  acceptButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.white,
+  },
+  statusButton: {
+    backgroundColor: Colors.semantic.primaryButton,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -881,64 +863,50 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   statusButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.white,
-  },
-  acceptButton: {
-    backgroundColor: Colors.semantic.primaryButton,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    minHeight: 36,
-    justifyContent: 'center',
-  },
-  acceptButtonLoading: {
-    backgroundColor: Colors.muted,
-  },
-  acceptButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: Colors.white,
   },
   chatButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.white,
     borderWidth: 1,
     borderColor: Colors.primary,
-    borderRadius: 8,
+    borderRadius: 16,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     minHeight: 36,
-    gap: 6,
-  },
-  chatButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   reviewButton: {
     backgroundColor: Colors.semantic.successAlert,
-    borderRadius: 8,
+    borderRadius: 16,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     minHeight: 36,
     justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Colors.semantic.successAlert,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   reviewButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: Colors.white,
   },
   ownTaskIndicator: {
     backgroundColor: Colors.muted,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginTop: 8,
+    alignSelf: 'center',
   },
   ownTaskText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
     color: Colors.semantic.tabInactive,
   },
