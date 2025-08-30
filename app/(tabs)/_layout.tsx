@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Chrome as Home, List, MessageCircle, Gift, Zap } from 'lucide-react-native';
+import { Home, List, MessageCircle, Gift, Zap } from 'lucide-react-native';
 import { TouchableOpacity, View, StyleSheet, Platform, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -43,7 +43,7 @@ const PostTaskButton = ({ focused }: { focused: boolean }) => {
       </View>
       <Text style={[
         styles.postTaskLabel,
-        { color: focused ? '#0021A5' : '#9CA3AF' }
+        { color: focused ? Colors.semantic.tabActive : Colors.semantic.tabInactive }
       ]}>
         Post Task
       </Text>
@@ -68,13 +68,14 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
+          tabBarShowLabel: false,
           tabBarStyle: {
             backgroundColor: '#FFFFFF',
-            borderTopColor: 'rgba(229, 231, 235, 0.3)',
+            borderTopColor: Colors.semantic.divider,
             borderTopWidth: 1,
-            height: 88 + insets.bottom,
+            height: 64 + insets.bottom,
             paddingBottom: insets.bottom,
-            paddingTop: 12,
+            paddingTop: 8,
             position: 'absolute',
             bottom: 0,
             left: 0,
@@ -85,19 +86,17 @@ export default function TabLayout() {
             shadowOpacity: 0.08,
             shadowRadius: 16,
           },
-          tabBarActiveTintColor: '#0021A5', // UF Blue for active
-          tabBarInactiveTintColor: '#9CA3AF', // Lighter gray for inactive
-          tabBarLabelStyle: {
-            fontSize: 12,
-            fontWeight: '600',
-            marginTop: 8,
+          tabBarActiveTintColor: Colors.semantic.tabActive,
+          tabBarInactiveTintColor: Colors.semantic.tabInactive,
+          tabBarIconStyle: {
+            marginTop: 4,
           },
         }}
       >
         <Tabs.Screen
           name="home"
           options={{
-            title: 'Home',
+            tabBarAccessibilityLabel: 'Home',
             tabBarIcon: ({ size, color }) => (
               <Home size={size} color={color} strokeWidth={2} />
             ),
@@ -106,7 +105,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="tasks"
           options={{
-            title: 'Tasks',
+            tabBarAccessibilityLabel: 'Tasks',
             tabBarIcon: ({ size, color, focused }) => (
               <List 
                 size={size} 
@@ -119,14 +118,14 @@ export default function TabLayout() {
         <Tabs.Screen
           name="post"
           options={{
-            title: 'Post Task',
+            tabBarAccessibilityLabel: 'Post Task',
             tabBarButton: PostTaskTabButton,
           }}
         />
         <Tabs.Screen
           name="chats"
           options={{
-            title: 'Chats',
+            tabBarAccessibilityLabel: 'Chats',
             tabBarIcon: ({ size, color }) => (
               <MessageCircle size={size} color={color} strokeWidth={2} />
             ),
@@ -135,7 +134,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="referrals"
           options={{
-            title: 'Referrals',
+            tabBarAccessibilityLabel: 'Referrals',
             tabBarIcon: ({ size, color }) => (
               <Gift size={size} color={color} strokeWidth={2} />
             ),
@@ -153,15 +152,14 @@ const styles = StyleSheet.create({
   postTaskTabContainer: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: 4,
-    paddingBottom: 12,
+    justifyContent: 'center',
+    paddingTop: 0,
+    paddingBottom: 8,
   },
   postTaskButton: {
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    gap: 8,
-    height: '100%',
+    justifyContent: 'center',
+    gap: 4,
   },
   postTaskIconContainer: {
     width: 52,
@@ -184,5 +182,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
+    marginTop: 4,
   },
 });
