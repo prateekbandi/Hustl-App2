@@ -293,8 +293,8 @@ export default function TasksScreen() {
     const canAccept = activeTab === 'available' && !isOwnTask && !isGuest && user;
     const canChat = task.status === 'accepted' && user && 
       (task.created_by === user.id || task.accepted_by === user.id);
-    const canUpdateStatus = activeTab === 'doing' && user && task.accepted_by === user.id && task.status === 'accepted';
-    const showStatusUpdate = canUpdateStatus && task.current_status && task.current_status !== 'completed';
+    const canUpdateStatus = activeTab === 'doing' && user && task.accepted_by === user.id && 
+      task.status === 'accepted' && task.current_status !== 'completed';
     const canReview = activeTab === 'posts' && user && task.created_by === user.id && task.status === 'completed';
 
     return (
@@ -398,10 +398,12 @@ export default function TasksScreen() {
               </TouchableOpacity>
             )}
             
-            {showStatusUpdate && (
+            {canUpdateStatus && (
               <TouchableOpacity 
                 style={styles.statusButton}
                 onPress={() => router.push(`/task/${task.id}`)}
+                accessibilityLabel={`Update status for ${task.title}`}
+                accessibilityRole="button"
               >
                 <Text style={styles.statusButtonText}>Update Status</Text>
                 <ChevronRight size={14} color={Colors.primary} strokeWidth={2} />
@@ -866,19 +868,22 @@ const styles = StyleSheet.create({
   statusButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: Colors.primary,
-    borderRadius: 8,
+    backgroundColor: Colors.semantic.primaryButton,
+    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    minHeight: 36,
+    paddingVertical: 10,
+    minHeight: 40,
     gap: 4,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   statusButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.primary,
+    color: Colors.white,
   },
   acceptButton: {
     backgroundColor: Colors.semantic.primaryButton,
