@@ -235,7 +235,7 @@ export class TaskRepo {
     try {
       const { data: result, error } = await supabase.rpc('update_task_status', {
         p_task_id: data.taskId,
-        p_new_status: data.newStatus,
+        p_new_status: data.newStatus.toLowerCase(),
         p_note: data.note || '',
         p_photo_url: data.photoUrl || ''
       });
