@@ -17,6 +17,7 @@ import Animated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/theme/colors';
 import PrivacyPolicyModal from '@/components/PrivacyPolicyModal';
+import TermsOfServiceModal from '@/components/TermsOfServiceModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -185,6 +186,7 @@ export default function WelcomeScreen() {
   const contentOpacity = useSharedValue(0);
   const contentTranslateY = useSharedValue(40);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   useEffect(() => {
     // Staggered entrance animations
@@ -218,7 +220,7 @@ export default function WelcomeScreen() {
   };
 
   const handleTerms = () => {
-    console.log('Terms of Service pressed');
+    setShowTermsModal(true);
   };
 
   const handlePrivacy = () => {
@@ -309,6 +311,12 @@ export default function WelcomeScreen() {
       <PrivacyPolicyModal
         visible={showPrivacyModal}
         onClose={() => setShowPrivacyModal(false)}
+      />
+
+      {/* Terms of Service Modal */}
+      <TermsOfServiceModal
+        visible={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
       />
     </View>
   );
