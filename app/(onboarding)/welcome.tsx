@@ -16,6 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/theme/colors';
+import PrivacyPolicyModal from '@/components/PrivacyPolicyModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -183,6 +184,7 @@ export default function WelcomeScreen() {
   const titleTranslateY = useSharedValue(30);
   const contentOpacity = useSharedValue(0);
   const contentTranslateY = useSharedValue(40);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   useEffect(() => {
     // Staggered entrance animations
@@ -220,7 +222,7 @@ export default function WelcomeScreen() {
   };
 
   const handlePrivacy = () => {
-    console.log('Privacy Policy pressed');
+    setShowPrivacyModal(true);
   };
 
   return (
@@ -302,6 +304,12 @@ export default function WelcomeScreen() {
           </TouchableOpacity>
         </View>
       </Animated.View>
+
+      {/* Privacy Policy Modal */}
+      <PrivacyPolicyModal
+        visible={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+      />
     </View>
   );
 }
