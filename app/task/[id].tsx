@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Platform, ActivityIndicator, Dimensions } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Clock, MapPin, Store, X, ChevronRight, History, AlertTriangle } from 'lucide-react-native';
+import { ArrowLeft, Clock, MapPin, Store, X, ChevronRight, History, TriangleAlert as AlertTriangle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/theme/colors';
 import { useAuth } from '@/contexts/AuthContext';
