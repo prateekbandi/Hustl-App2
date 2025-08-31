@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Image, Dimensions } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Send, MoveHorizontal as MoreHorizontal, Plus } from 'lucide-react-native';
+import { ArrowLeft, Send, MoveHorizontal as MoreHorizontal, Plus, User } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/theme/colors';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,6 +12,22 @@ import type { ChatMessage } from '@/types/chat';
 import UserProfileSheet from '@/components/UserProfileSheet';
 
 const { width } = Dimensions.get('window');
+
+interface ChatParticipant {
+  id: string;
+  full_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+  major: string | null;
+  class_year: string | null;
+  university: string | null;
+  bio: string | null;
+  is_verified: boolean;
+  completed_tasks_count: number;
+  response_rate: number;
+  last_seen_at: string;
+  created_at: string;
+}
 
 export default function ChatScreen() {
   const router = useRouter();
@@ -26,8 +42,7 @@ export default function ChatScreen() {
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
-  const [otherUserId, setOtherUserId] = useState<string | null>(null);
-  const [otherUserProfile, setOtherUserProfile] = useState<any>(null);
+  const [otherParticipant, setOtherParticipant] = useState<ChatParticipant | null>(null);
   const [otherLastReadAt, setOtherLastReadAt] = useState<Date | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const unsubscribeRef = useRef<(() => void) | null>(null);
@@ -36,7 +51,7 @@ export default function ChatScreen() {
   // Load message history
   useEffect(() => {
     loadMessages();
-    loadOtherUserInfo();
+    loadOtherParticipant();
   }, [roomId]);
 
   // Realtime subscription
@@ -50,14 +65,14 @@ export default function ChatScreen() {
     });
 
     // Subscribe to read receipts via chat_members updates
-    if (otherUserId) {
+    if (otherParticipant) {
       readChannelRef.current = supabase
         .channel(`room_${roomId}_reads`)
         .on('postgres_changes',
             { event: 'UPDATE', schema: 'public', table: 'chat_members', filter: `room_id=eq.${roomId}` },
             (payload) => {
               const row = payload.new as { user_id: string; last_read_at: string };
-              if (row.user_id === otherUserId && row.last_read_at) {
+              if (row.user_id === otherParticipant.id && row.last_read_at) {
                 setOtherLastReadAt(new Date(row.last_read_at));
               }
             })
@@ -70,7 +85,7 @@ export default function ChatScreen() {
       readChannelRef.current?.unsubscribe();
       readChannelRef.current = null;
     };
-  }, [roomId, otherUserId]);
+  }, [roomId, otherParticipant]);
 
   // Mark room as read when screen is focused
   useEffect(() => {
@@ -97,47 +112,39 @@ export default function ChatScreen() {
     }
   };
 
-  const loadOtherUserInfo = async () => {
+  const loadOtherParticipant = async () => {
     try {
-      // Get room info to find the other user
-      const { data: roomData } = await supabase
-        .from('chat_rooms')
-        .select(`
-          id,
-          chat_members!inner(user_id)
-        `)
-        .eq('id', roomId)
-        .single();
+      if (!user?.id) return;
 
-      if (roomData?.chat_members) {
-        const otherMember = roomData.chat_members.find((m: any) => m.user_id !== user?.id);
-        if (otherMember) {
-          setOtherUserId(otherMember.user_id);
-          
-          // Load other user's profile
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('id, full_name, username, major, avatar_url, university')
-            .eq('id', otherMember.user_id)
-            .maybeSingle();
-          
-          setOtherUserProfile(profile);
+      // Get other participant's profile using RPC
+      const { data: participantData, error } = await supabase.rpc('get_chat_participant_profile', {
+        p_room_id: roomId,
+        p_current_user_id: user.id
+      });
 
-          // Load their current last_read_at
-          const { data: memberData } = await supabase
-            .from('chat_members')
-            .select('last_read_at')
-            .eq('room_id', roomId)
-            .eq('user_id', otherMember.user_id)
-            .maybeSingle();
+      if (error) {
+        console.error('Failed to load participant profile:', error);
+        return;
+      }
 
-          if (memberData?.last_read_at) {
-            setOtherLastReadAt(new Date(memberData.last_read_at));
-          }
+      if (participantData && participantData.length > 0) {
+        const participant = participantData[0] as ChatParticipant;
+        setOtherParticipant(participant);
+
+        // Load their current last_read_at
+        const { data: memberData } = await supabase
+          .from('chat_members')
+          .select('last_read_at')
+          .eq('room_id', roomId)
+          .eq('user_id', participant.id)
+          .limit(1);
+
+        if (memberData?.[0]?.last_read_at) {
+          setOtherLastReadAt(new Date(memberData[0].last_read_at));
         }
       }
     } catch (error) {
-      console.error('Failed to load other user info:', error);
+      console.error('Failed to load other participant:', error);
     }
   };
 
@@ -177,18 +184,62 @@ export default function ChatScreen() {
   };
 
   const handleProfilePress = useCallback(() => {
-    if (!otherUserId) return;
+    if (!otherParticipant) return;
     
     // Analytics
-    console.log('chat_profile_opened', { otherUserId, roomId });
-    
-    if (!otherUserId) return;
-    
-    // Analytics
-    console.log('chat_profile_opened', { otherUserId, roomId });
+    console.log('chat_profile_opened', { otherUserId: otherParticipant.id, roomId });
     
     setShowProfile(true);
-  }, [otherUserId, roomId]);
+  }, [otherParticipant, roomId]);
+
+  const formatDisplayName = (participant: ChatParticipant | null): string => {
+    if (!participant) return 'User';
+    
+    const fullName = participant.full_name;
+    const username = participant.username;
+    
+    if (fullName) {
+      const parts = fullName.trim().split(' ');
+      if (parts.length >= 2) {
+        // "First L." format
+        return `${parts[0]} ${parts[parts.length - 1].charAt(0)}.`;
+      }
+      return parts[0]; // Just first name if only one word
+    }
+    
+    return username || 'User';
+  };
+
+  const formatSubtitle = (participant: ChatParticipant | null): string => {
+    if (!participant) return '';
+    
+    // Check if user was recently active (within 5 minutes)
+    if (participant.last_seen_at) {
+      const lastSeen = new Date(participant.last_seen_at);
+      const now = new Date();
+      const diffInMinutes = (now.getTime() - lastSeen.getTime()) / (1000 * 60);
+      
+      if (diffInMinutes < 5) {
+        return 'Online';
+      } else if (diffInMinutes < 60) {
+        return `Last seen ${Math.floor(diffInMinutes)}m ago`;
+      } else if (diffInMinutes < 1440) {
+        return `Last seen ${Math.floor(diffInMinutes / 60)}h ago`;
+      }
+    }
+    
+    // Fallback to university and major
+    const parts = [];
+    if (participant.university) {
+      const shortUni = participant.university.includes('University of Florida') ? 'UF' : participant.university;
+      parts.push(shortUni);
+    }
+    if (participant.major) {
+      parts.push(participant.major);
+    }
+    
+    return parts.join(' • ') || '';
+  };
 
   const formatTime = (timestamp: string): string => {
     const date = new Date(timestamp);
@@ -275,22 +326,22 @@ export default function ChatScreen() {
         
         <TouchableOpacity style={styles.headerCenter} onPress={handleProfilePress}>
           <View style={styles.headerAvatarContainer}>
-            {otherUserProfile?.avatar_url ? (
-              <Image source={{ uri: otherUserProfile.avatar_url }} style={styles.headerAvatar} />
+            {otherParticipant?.avatar_url ? (
+              <Image source={{ uri: otherParticipant.avatar_url }} style={styles.headerAvatar} />
             ) : (
               <View style={styles.headerAvatarPlaceholder}>
                 <Text style={styles.headerAvatarText}>
-                  {getInitials(otherUserProfile?.full_name || otherUserProfile?.username)}
+                  {getInitials(otherParticipant?.full_name || otherParticipant?.username)}
                 </Text>
               </View>
             )}
           </View>
           <View style={styles.headerInfo}>
             <Text style={styles.headerTitle}>
-              {otherUserProfile?.full_name || otherUserProfile?.username || 'User'}
+              {formatDisplayName(otherParticipant)}
             </Text>
-            {otherUserProfile?.major && (
-              <Text style={styles.headerSubtitle}>{otherUserProfile.major}</Text>
+            {formatSubtitle(otherParticipant) && (
+              <Text style={styles.headerSubtitle}>{formatSubtitle(otherParticipant)}</Text>
             )}
           </View>
         </TouchableOpacity>
@@ -370,7 +421,7 @@ export default function ChatScreen() {
       <UserProfileSheet
         visible={showProfile}
         onClose={() => setShowProfile(false)}
-        userId={otherUserId}
+        userId={otherParticipant?.id || null}
         currentChatRoomId={roomId}
       />
     </KeyboardAvoidingView>
