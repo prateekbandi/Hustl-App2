@@ -24,6 +24,14 @@ import GlobalHeader from '@components/GlobalHeader';
 
 const { width, height } = Dimensions.get('window');
 
+// Responsive banner height calculation
+const getCompactBannerHeight = (): number => {
+  if (height <= 720) return 88;
+  if (height <= 900) return 104;
+  return 120;
+};
+
+const COMPACT_BANNER_HEIGHT = getCompactBannerHeight();
 const categories = [
   {
     id: 'food',
@@ -242,7 +250,7 @@ const FloatingParticles = () => {
 };
 
 // Enhanced Referral Banner with Premium Design
-const AnimatedReferralsBanner = () => {
+const AnimatedReferralsBanner = ({ compact = false }: { compact?: boolean }) => {
   const router = useRouter();
   const glowAnimation = useSharedValue(0);
   const pulseAnimation = useSharedValue(1);
@@ -340,31 +348,39 @@ const AnimatedReferralsBanner = () => {
   return (
     <View style={styles.referralContainer}>
       <Animated.View style={[styles.referralHalo, animatedHaloStyle]} />
-      <Animated.View style={[styles.referralCard, animatedGlowStyle]}>
+      <Animated.View style={[
+        styles.referralCard, 
+        compact && styles.referralCardCompact,
+        animatedGlowStyle
+      ]}>
         <TouchableOpacity onPress={handleBannerPress} activeOpacity={0.95}>
           <LinearGradient
             colors={['#0047FF', '#0021A5', '#FA4616']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             locations={[0, 0.6, 1]}
-            style={styles.referralGradient}
+            style={[styles.referralGradient, compact && styles.referralGradientCompact]}
           >
-            <View style={styles.referralContent}>
+            <View style={[styles.referralContent, compact && styles.referralContentCompact]}>
               <View style={styles.referralTextContainer}>
-                <Text style={styles.referralTitle}>Get $10 for every referral!</Text>
-                <Text style={styles.referralSubtitle}>
+                <Text style={[styles.referralTitle, compact && styles.referralTitleCompact]} numberOfLines={1}>
+                  Get $10 for every referral!
+                </Text>
+                <Text style={[styles.referralSubtitle, compact && styles.referralSubtitleCompact]} numberOfLines={1}>
                   Invite friends and earn credits when they complete their first task.
                 </Text>
               </View>
               
               <Animated.View style={animatedPulseStyle}>
                 <TouchableOpacity 
-                  style={styles.inviteButton} 
+                  style={[styles.inviteButton, compact && styles.inviteButtonCompact]} 
                   onPress={handleInvitePress}
                   activeOpacity={0.8}
                 >
                   <Animated.View style={[styles.shimmerOverlay, animatedShimmerStyle]} />
-                  <Text style={styles.inviteButtonText}>Invite</Text>
+                  <Text style={[styles.inviteButtonText, compact && styles.inviteButtonTextCompact]}>
+                    Invite
+                  </Text>
                 </TouchableOpacity>
               </Animated.View>
             </View>
@@ -620,7 +636,7 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         {/* Enhanced Referral Banner */}
-        <AnimatedReferralsBanner />
+        <AnimatedReferralsBanner compact={true} />
 
         {/* Task Categories Section */}
         <View style={styles.categoriesSection}>
@@ -702,7 +718,7 @@ const styles = StyleSheet.create({
   referralContainer: {
     marginHorizontal: 20,
     marginTop: 16,
-    marginBottom: 40,
+    marginBottom: 16,
     position: 'relative',
   },
   referralHalo: {
@@ -724,41 +740,66 @@ const styles = StyleSheet.create({
     elevation: 20,
     overflow: 'hidden',
     zIndex: 1,
+    minHeight: COMPACT_BANNER_HEIGHT,
+  },
+  referralCardCompact: {
+    minHeight: COMPACT_BANNER_HEIGHT,
+    maxHeight: COMPACT_BANNER_HEIGHT,
   },
   referralGradient: {
     borderRadius: 20,
+    minHeight: COMPACT_BANNER_HEIGHT,
+  },
+  referralGradientCompact: {
+    minHeight: COMPACT_BANNER_HEIGHT,
+    maxHeight: COMPACT_BANNER_HEIGHT,
   },
   referralContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 28,
+    padding: 20,
     gap: 24,
+    minHeight: COMPACT_BANNER_HEIGHT,
+  },
+  referralContentCompact: {
+    padding: 16,
+    gap: 16,
+    minHeight: COMPACT_BANNER_HEIGHT,
+    maxHeight: COMPACT_BANNER_HEIGHT,
   },
   referralTextContainer: {
     flex: 1,
-    gap: 10,
+    gap: 4,
   },
   referralTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
-    lineHeight: 26,
+    lineHeight: 22,
     textShadowColor: 'rgba(0, 0, 0, 0.4)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
   },
+  referralTitleCompact: {
+    fontSize: 16,
+    lineHeight: 20,
+  },
   referralSubtitle: {
-    fontSize: 15,
+    fontSize: 13,
     color: '#F1F5F9',
-    lineHeight: 22,
+    lineHeight: 18,
     opacity: 0.95,
+  },
+  referralSubtitleCompact: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   inviteButton: {
     backgroundColor: '#FA4616',
-    borderRadius: 28,
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    minHeight: 56,
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#FA4616',
@@ -768,6 +809,15 @@ const styles = StyleSheet.create({
     elevation: 12,
     position: 'relative',
     overflow: 'hidden',
+  },
+  inviteButtonCompact: {
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    minHeight: 40,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   shimmerOverlay: {
     position: 'absolute',
@@ -779,13 +829,17 @@ const styles = StyleSheet.create({
     transform: [{ skewX: '-25deg' }],
   },
   inviteButtonText: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
     letterSpacing: 0.5,
+  },
+  inviteButtonTextCompact: {
+    fontSize: 14,
+    letterSpacing: 0.3,
   },
 
   // Categories Section
