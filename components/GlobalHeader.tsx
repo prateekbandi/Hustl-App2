@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, TextInput, Modal, ScrollView, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Search, Bell, ChevronDown, Wallet, DollarSign, X, CircleHelp as HelpCircle, Flag, MessageSquare, Settings, User, FileText } from 'lucide-react-native';
+import { Search, Bell, X, CircleHelp as HelpCircle, Flag, MessageSquare, Settings, User, FileText } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring } from 'react-native-reanimated';
 import { Colors } from '@/theme/colors';
@@ -37,8 +37,6 @@ export default function GlobalHeader({
   const { user, isGuest } = useAuth();
 
   const [showProfileSidebar, setShowProfileSidebar] = React.useState(false);
-  const [headerMode, setHeaderMode] = React.useState<'hustl' | 'wallet' | 'credits'>('hustl');
-  const [showHeaderDropdown, setShowHeaderDropdown] = React.useState(false);
   const [showSearchModal, setShowSearchModal] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [filteredSearchItems, setFilteredSearchItems] = React.useState(SEARCH_ITEMS);
@@ -65,15 +63,9 @@ export default function GlobalHeader({
     setShowProfileSidebar(true);
   };
 
-  const handleHeaderModePress = () => {
+  const handleLogoPress = () => {
     triggerHaptics();
-    setShowHeaderDropdown(!showHeaderDropdown);
-  };
-
-  const handleHeaderModeSelect = (mode: 'hustl' | 'wallet' | 'credits') => {
-    triggerHaptics();
-    setHeaderMode(mode);
-    setShowHeaderDropdown(false);
+    router.push('/(tabs)/home');
   };
 
   const handleSearchPress = () => {
@@ -110,12 +102,6 @@ export default function GlobalHeader({
     setFilteredSearchItems(SEARCH_ITEMS);
   };
 
-  const handleProfileLongPress = () => {
-    if (isGuest) return;
-    // TODO: Implement quick menu
-    console.log('Profile long press - show quick menu');
-  };
-
   const handleNotificationsPress = () => {
     console.log('Notifications pressed');
   };
@@ -127,93 +113,6 @@ export default function GlobalHeader({
       .join('')
       .toUpperCase()
       .slice(0, 2);
-  };
-
-  const renderHeaderCenter = () => {
-    const mockCredits = 1250; // $12.50 in cents
-    
-    return (
-      <TouchableOpacity 
-        style={styles.headerCenter} 
-        onPress={handleHeaderModePress}
-        activeOpacity={0.7}
-      >
-        <View style={styles.headerCenterContent}>
-          {headerMode === 'hustl' && (
-            <>
-              <Image
-                source={require('../src/assets/images/image.png')}
-                style={styles.headerLogo}
-                resizeMode="contain"
-              />
-              <Text style={styles.headerBrandText}>Hustl</Text>
-            </>
-          )}
-          
-          {headerMode === 'wallet' && (
-            <>
-              <Wallet size={20} color={Colors.primary} strokeWidth={2} />
-              <Text style={styles.headerModeText}>Wallet</Text>
-            </>
-          )}
-          
-          {headerMode === 'credits' && (
-            <>
-              <DollarSign size={20} color={Colors.semantic.successAlert} strokeWidth={2} />
-              <Text style={styles.headerCreditsText}>${(mockCredits / 100).toFixed(2)}</Text>
-            </>
-          )}
-        </View>
-        
-        <ChevronDown 
-          size={16} 
-          color={Colors.semantic.tabInactive} 
-          strokeWidth={2} 
-        />
-      </TouchableOpacity>
-    );
-  };
-
-  const renderHeaderDropdown = () => {
-    if (!showHeaderDropdown) return null;
-    
-    return (
-      <View style={styles.headerDropdown}>
-        <TouchableOpacity 
-          style={[styles.dropdownItem, headerMode === 'hustl' && styles.activeDropdownItem]}
-          onPress={() => handleHeaderModeSelect('hustl')}
-        >
-          <Image
-            source={require('../src/assets/images/image.png')}
-            style={styles.dropdownIcon}
-            resizeMode="contain"
-          />
-          <Text style={[styles.dropdownText, headerMode === 'hustl' && styles.activeDropdownText]}>
-            Hustl
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.dropdownItem, headerMode === 'wallet' && styles.activeDropdownItem]}
-          onPress={() => handleHeaderModeSelect('wallet')}
-        >
-          <Wallet size={20} color={Colors.primary} strokeWidth={2} />
-          <Text style={[styles.dropdownText, headerMode === 'wallet' && styles.activeDropdownText]}>
-            Wallet
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.dropdownItem, headerMode === 'credits' && styles.activeDropdownItem]}
-          onPress={() => handleHeaderModeSelect('credits')}
-        >
-          <DollarSign size={20} color={Colors.semantic.successAlert} strokeWidth={2} />
-          <Text style={[styles.dropdownText, headerMode === 'credits' && styles.activeDropdownText]}>
-            Credits
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
   };
 
   const SearchModal = () => (
@@ -287,7 +186,20 @@ export default function GlobalHeader({
               </View>
             </TouchableOpacity>
             
-            {renderHeaderCenter()}
+            <TouchableOpacity 
+              style={styles.logoContainer} 
+              onPress={handleLogoPress}
+              activeOpacity={0.7}
+              accessibilityLabel="Go to Home"
+              accessibilityRole="button"
+            >
+              <Image
+                source={require('../src/assets/images/image.png')}
+                style={styles.headerLogo}
+                resizeMode="contain"
+              />
+              <Text style={styles.headerBrandText}>Hustl</Text>
+            </TouchableOpacity>
             
             <View style={styles.rightSection}>
               {showSearch && (
@@ -331,7 +243,33 @@ export default function GlobalHeader({
               </View>
             </TouchableOpacity>
             
-            {renderHeaderCenter()}
+            <TouchableOpacity 
+              style={styles.logoContainer} 
+              onPress={handleLogoPress}
+              activeOpacity={0.7}
+              accessibilityLabel="Go to Home"
+              accessibilityRole="button"
+            >
+              <Image
+                source={require('../src/assets/images/image.png')}
+                style={styles.headerLogo}
+                resizeMode="contain"
+              />
+              <Text style={styles.headerBrandText}>Hustl</Text>
+            <TouchableOpacity 
+              style={styles.logoContainer} 
+              onPress={handleLogoPress}
+              activeOpacity={0.7}
+              accessibilityLabel="Go to Home"
+              accessibilityRole="button"
+            >
+              <Image
+                source={require('../src/assets/images/image.png')}
+                style={styles.headerLogo}
+                resizeMode="contain"
+              />
+              <Text style={styles.headerBrandText}>Hustl</Text>
+            </TouchableOpacity>
           </View>
 
           {title && (
@@ -352,10 +290,6 @@ export default function GlobalHeader({
             )}
           </View>
         </View>
-      </View>
-      
-      {renderHeaderDropdown()}
-      
       {/* Profile Sidebar */}
       <ProfileSidebar
         visible={showProfileSidebar}
@@ -433,86 +367,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#F1F5F9',
   },
-  headerCenter: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: 'rgba(245, 245, 245, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(229, 231, 235, 0.2)',
-    marginHorizontal: 12,
-  },
-  headerCenterContent: {
+  logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    flex: 1,
-    justifyContent: 'center',
   },
   headerLogo: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
   },
   headerBrandText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: Colors.semantic.headingText,
-    letterSpacing: 0.5,
-  },
-  headerModeText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  headerCreditsText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.semantic.successAlert,
-  },
-  headerDropdown: {
-    position: 'absolute',
-    top: 72,
-    left: 16,
-    right: 16,
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 12,
-    zIndex: 1000,
-    borderWidth: 1,
-    borderColor: 'rgba(229, 231, 235, 0.5)',
-  },
-  dropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 12,
-  },
-  activeDropdownItem: {
-    backgroundColor: Colors.primary + '10',
-  },
-  dropdownIcon: {
-    width: 20,
-    height: 20,
-  },
-  dropdownText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: Colors.semantic.bodyText,
-  },
-  activeDropdownText: {
-    color: Colors.primary,
-    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   title: {
     fontSize: 18,

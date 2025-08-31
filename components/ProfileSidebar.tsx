@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { X, User, Star, FileText, History, MessageSquare, Gift, Settings, CircleHelp as HelpCircle, MessageCircle, LogOut, ChevronRight, Shield, CreditCard } from 'lucide-react-native';
+import { X, User, Star, FileText, History, MessageSquare, Gift, Settings, CircleHelp as HelpCircle, MessageCircle, LogOut, ChevronRight, Shield, CreditCard, Wallet, DollarSign } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, { 
   useSharedValue, 
@@ -56,6 +56,16 @@ export default function ProfileSidebar({ visible, onClose }: ProfileSidebarProps
       icon: <User size={20} color={Colors.semantic.bodyText} strokeWidth={2} />, 
       title: 'Profile Information',
       route: '/profile/edit'
+    },
+    { 
+      icon: <Wallet size={20} color={Colors.semantic.bodyText} strokeWidth={2} />, 
+      title: 'Wallet',
+      route: '/wallet'
+    },
+    { 
+      icon: <DollarSign size={20} color={Colors.semantic.bodyText} strokeWidth={2} />, 
+      title: 'Credits',
+      route: '/credits'
     },
     { 
       icon: <Star size={20} color={Colors.semantic.bodyText} strokeWidth={2} />, 
@@ -260,18 +270,19 @@ export default function ProfileSidebar({ visible, onClose }: ProfileSidebarProps
                   </Text>
                 </View>
               </View>
-              
-              {!isGuest && (
-                <View style={styles.creditsContainer}>
-                  <CreditCard size={16} color={Colors.primary} strokeWidth={2} />
-                  <Text style={styles.creditsText}>$0.00 Credits</Text>
-                </View>
-              )}
             </View>
 
             {/* Menu Items */}
             <View style={styles.menuSection}>
-              {getMenuItems().map(renderMenuItem)}
+              {getMenuItems().slice(0, 3).map(renderMenuItem)}
+            </View>
+
+            <View style={styles.menuSection}>
+              {getMenuItems().slice(3, 7).map((item, index) => renderMenuItem(item, index + 3))}
+            </View>
+
+            <View style={styles.menuSection}>
+              {getMenuItems().slice(7).map((item, index) => renderMenuItem(item, index + 7))}
             </View>
 
             {/* Logout */}
