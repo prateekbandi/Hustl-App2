@@ -2,33 +2,35 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Clock, MapPin, Store, MessageCircle, List } from 'lucide-react-native';
+import { ArrowLeft, Clock, MapPin, Store, MessageCircle, List, Play, CheckCircle, Truck } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/theme/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { TaskRepo } from '@/lib/taskRepo';
 import { ChatService } from '@/lib/chat';
-import { Task, TaskCurrentStatus } from '@/types/database';
+import { supabase } from '@/lib/supabase';
+import { Task } from '@/types/database';
 import Toast from '@/components/Toast';
 
-type TaskPhase = 'none' | 'started' | 'picked_up' | 'on_the_way' | 'delivered' | 'completed';
+type TaskPhase = 'none' | 'started' | 'on_the_way' | 'delivered' | 'completed';
 
 interface PhaseButton {
   phase: TaskPhase;
   label: string;
   color: string;
+  icon: React.ReactNode;
   enabled: boolean;
 }
 
 // Category-specific phase flows
 const PHASE_FLOWS: Record<string, { phases: TaskPhase[]; labels: string[] }> = {
   food_delivery: {
-    phases: ['none', 'started', 'on_the_way', 'delivered', 'completed'],
-    labels: ['Posted', 'Started', 'On The Way', 'Delivered', 'Completed']
+    phases: ['none', 'started', 'on_the_way', 'delivered'],
+    labels: ['Posted', 'Started', 'On The Way', 'Delivered']
   },
   food: {
-    phases: ['none', 'started', 'picked_up', 'completed'],
-    labels: ['Posted', 'Started', 'Picked Up', 'Completed']
+    phases: ['none', 'started', 'completed'],
+    labels: ['Posted', 'Started', 'Completed']
   },
   default: {
     phases: ['none', 'started', 'completed'],
@@ -92,8 +94,6 @@ export default function UpdateStatusScreen() {
   };
 
   const setupRealtimeSubscription = () => {
-    const { supabase } = require('@/lib/supabase');
-    
     const taskChannel = supabase
       .channel(`task_${taskId}`)
       .on(
@@ -127,9 +127,9 @@ export default function UpdateStatusScreen() {
     }
   };
 
-  const getPhaseFlow = (category: string) => {
+  const getPhaseFlow = (category: string, store: string) => {
     // Check if it's food delivery based on category and store name
-    if (category === 'food' && task?.store?.toLowerCase().includes('delivery')) {
+    if (category === 'food' && store?.toLowerCase().includes('delivery')) {
       return PHASE_FLOWS.food_delivery;
     }
     return PHASE_FLOWS[category] || PHASE_FLOWS.default;
@@ -138,7 +138,7 @@ export default function UpdateStatusScreen() {
   const getNextPhaseButtons = (): PhaseButton[] => {
     if (!task) return [];
     
-    const flow = getPhaseFlow(task.category);
+    const flow = getPhaseFlow(task.category, task.store);
     const currentIndex = flow.phases.indexOf(task.phase || 'none');
     
     if (currentIndex === -1 || currentIndex >= flow.phases.length - 1) {
@@ -152,8 +152,9 @@ export default function UpdateStatusScreen() {
     // Always show the next step
     buttons.push({
       phase: nextPhase,
-      label: nextLabel,
+      label: getButtonLabel(nextPhase, nextLabel),
       color: getPhaseColor(nextPhase),
+      icon: getPhaseIcon(nextPhase),
       enabled: true
     });
     
@@ -163,6 +164,7 @@ export default function UpdateStatusScreen() {
         phase: 'completed',
         label: 'Start & Complete',
         color: Colors.semantic.completedBadge,
+        icon: <CheckCircle size={18} color={Colors.white} strokeWidth={2} />,
         enabled: true
       });
     }
@@ -170,11 +172,25 @@ export default function UpdateStatusScreen() {
     return buttons;
   };
 
+  const getButtonLabel = (phase: TaskPhase, flowLabel: string): string => {
+    switch (phase) {
+      case 'started':
+        return 'Start Task';
+      case 'on_the_way':
+        return 'On The Way';
+      case 'delivered':
+        return 'Mark as Delivered';
+      case 'completed':
+        return 'Mark as Completed';
+      default:
+        return flowLabel;
+    }
+  };
+
   const getPhaseColor = (phase: TaskPhase): string => {
     switch (phase) {
       case 'started':
         return '#F59E0B'; // Orange
-      case 'picked_up':
       case 'on_the_way':
         return '#8B5CF6'; // Purple
       case 'delivered':
@@ -185,10 +201,24 @@ export default function UpdateStatusScreen() {
     }
   };
 
+  const getPhaseIcon = (phase: TaskPhase): React.ReactNode => {
+    switch (phase) {
+      case 'started':
+        return <Play size={18} color={Colors.white} strokeWidth={2} />;
+      case 'on_the_way':
+        return <Truck size={18} color={Colors.white} strokeWidth={2} />;
+      case 'delivered':
+      case 'completed':
+        return <CheckCircle size={18} color={Colors.white} strokeWidth={2} />;
+      default:
+        return <Play size={18} color={Colors.white} strokeWidth={2} />;
+    }
+  };
+
   const canUpdateStatus = (): boolean => {
     if (!task || !user) return false;
     if (task.status === 'completed' || task.status === 'cancelled') return false;
-    return task.created_by === user.id || task.assignee_id === user.id;
+    return task.created_by === user.id || task.assignee_id === user.id || task.accepted_by === user.id;
   };
 
   const getPageTitle = (): string => {
@@ -208,6 +238,14 @@ export default function UpdateStatusScreen() {
     }
   };
 
+  const getCurrentPhaseLabel = (): string => {
+    if (!task) return 'Unknown';
+    
+    const flow = getPhaseFlow(task.category, task.store);
+    const currentIndex = flow.phases.indexOf(task.phase || 'none');
+    return flow.labels[currentIndex] || 'Posted';
+  };
+
   const handlePhaseUpdate = async (newPhase: TaskPhase) => {
     if (!task || isUpdating) return;
     
@@ -219,16 +257,15 @@ export default function UpdateStatusScreen() {
     const updatedTask = { 
       ...task, 
       phase: newPhase,
-      status: newPhase === 'completed' ? 'completed' : 'accepted',
+      status: newPhase === 'completed' || newPhase === 'delivered' ? 'completed' : 'accepted',
       updated_at: new Date().toISOString() 
     };
     setTask(updatedTask);
 
     try {
-      const { supabase } = require('@/lib/supabase');
       const { data, error } = await supabase.rpc('update_task_phase', {
-        p_task_id: taskId,
-        p_new_phase: newPhase
+        task_id: taskId,
+        new_phase: newPhase
       });
 
       if (error) {
@@ -240,6 +277,8 @@ export default function UpdateStatusScreen() {
           errorMessage = 'Invalid status transition';
         } else if (error.message.includes('not_authorized')) {
           errorMessage = 'Not authorized to update this task';
+        } else if (error.message.includes('task_already_completed')) {
+          errorMessage = 'Task is already completed';
         }
         
         setToast({
@@ -250,7 +289,12 @@ export default function UpdateStatusScreen() {
         return;
       }
 
-      const flow = getPhaseFlow(task.category);
+      // Update with actual data from server
+      if (data) {
+        setTask(data);
+      }
+
+      const flow = getPhaseFlow(task.category, task.store);
       const phaseIndex = flow.phases.indexOf(newPhase);
       const phaseLabel = flow.labels[phaseIndex] || 'Updated';
       
@@ -334,14 +378,6 @@ export default function UpdateStatusScreen() {
     return `${Math.floor(diffInMinutes / 1440)}d ago`;
   };
 
-  const getCurrentPhaseLabel = (): string => {
-    if (!task) return 'Unknown';
-    
-    const flow = getPhaseFlow(task.category);
-    const currentIndex = flow.phases.indexOf(task.phase || 'none');
-    return flow.labels[currentIndex] || 'Unknown';
-  };
-
   if (isLoading) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -415,6 +451,7 @@ export default function UpdateStatusScreen() {
               <Text style={styles.taskDescription}>{task.description}</Text>
             )}
 
+            {/* Task Details */}
             <View style={styles.taskDetails}>
               <View style={styles.detailRow}>
                 <Store size={20} color={Colors.semantic.tabInactive} strokeWidth={2} />
@@ -464,9 +501,12 @@ export default function UpdateStatusScreen() {
                     {isUpdating ? (
                       <ActivityIndicator size="small" color={Colors.white} />
                     ) : (
-                      <Text style={styles.primaryActionText}>
-                        {button.label}
-                      </Text>
+                      <>
+                        {button.icon}
+                        <Text style={styles.primaryActionText}>
+                          {button.label}
+                        </Text>
+                      </>
                     )}
                   </TouchableOpacity>
                 ))}
@@ -672,9 +712,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   primaryActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 12,
     paddingVertical: 16,
-    alignItems: 'center',
+    paddingHorizontal: 24,
+    gap: 12,
     minHeight: 48,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

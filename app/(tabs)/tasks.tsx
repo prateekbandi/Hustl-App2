@@ -489,7 +489,7 @@ export default function TasksScreen() {
             {canUpdateStatus && (
               <TouchableOpacity 
                 style={styles.updateStatusButton}
-                onPress={() => router.push(`/task/${task.id}`)}
+                onPress={() => router.push(`/update-status/${task.id}`)}
                 hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                 accessibilityLabel={`Update status for ${task.title}`}
                 accessibilityRole="button"
