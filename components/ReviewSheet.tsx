@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Star } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/theme/colors';
-import { ReviewRepo } from '@/lib/reviewRepo';
+import { supabase } from '@/lib/supabase';
 import { Task } from '@/types/database';
 
 interface ReviewSheetProps {
@@ -72,21 +72,19 @@ export default function ReviewSheet({ visible, onClose, task, onReviewSubmitted 
     setIsSubmitting(true);
 
     try {
-      const { data, error: submitError } = await ReviewRepo.createReview({
-        taskId: task.id,
-        stars,
-        comment: comment.trim(),
-        tags: selectedTags
+      const { data, error: submitError } = await supabase.rpc('submit_task_review', {
+        p_task_id: task.id,
+        p_rating: stars,
+        p_comment: comment.trim()
       });
 
-      if (submitError) {
-        setError(submitError);
+      if (submitError || !data?.[0]?.success) {
+        setError(data?.[0]?.error_message || submitError?.message || 'Failed to submit review');
         return;
       }
 
       // Success
       onReviewSubmitted?.();
-      onClose();
     } catch (error) {
       setError('Failed to submit review. Please try again.');
     } finally {

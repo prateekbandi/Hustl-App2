@@ -54,6 +54,7 @@ export default function TasksScreen() {
   // Review state
   const [showReviewSheet, setShowReviewSheet] = useState(false);
   const [taskToReview, setTaskToReview] = useState<Task | null>(null);
+  const [reviewableTasksMap, setReviewableTasksMap] = useState<Record<string, { canReview: boolean; otherUserId: string }>>({});
 
   // Chat-related state
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
@@ -102,9 +103,15 @@ export default function TasksScreen() {
           result = await TaskRepo.listUserDoingTasks(user.id);
           if (result.data) setDoingTasks(result.data);
           break;
+            // Load review status for completed tasks
+            loadReviewableStatus(result.data);
         case 'posts':
           result = await TaskRepo.listUserPostedTasks(user.id);
-          if (result.data) setPostedTasks(result.data);
+          if (result.data) {
+            setPostedTasks(result.data);
+            // Load review status for completed tasks
+            loadReviewableStatus(result.data);
+          }
           break;
       }
 
@@ -126,6 +133,32 @@ export default function TasksScreen() {
       setIsRefreshing(false);
     }
   }, [activeTab, user, isGuest]);
+
+  // Load review status for completed tasks
+  const loadReviewableStatus = async (tasks: Task[]) => {
+    const completedTasks = tasks.filter(task => task.status === 'completed');
+    const reviewMap: Record<string, { canReview: boolean; otherUserId: string }> = {};
+
+    for (const task of completedTasks) {
+      try {
+        const { data, error } = await supabase.rpc('can_review_task', {
+          p_task_id: task.id
+        });
+
+        if (data && data.length > 0) {
+          const result = data[0];
+          reviewMap[task.id] = {
+            canReview: result.can_review,
+            otherUserId: result.other_user_id
+          };
+        }
+      } catch (error) {
+        console.warn('Failed to check review status for task:', task.id, error);
+      }
+    }
+
+    setReviewableTasksMap(reviewMap);
+  };
 
   // Load tasks when tab changes or component mounts
   useEffect(() => {
@@ -313,6 +346,12 @@ export default function TasksScreen() {
   const handleReviewSubmitted = () => {
     setShowReviewSheet(false);
     setTaskToReview(null);
+    // Refresh review status
+    if (activeTab === 'doing') {
+      loadReviewableStatus(doingTasks);
+    } else if (activeTab === 'posts') {
+      loadReviewableStatus(postedTasks);
+    }
     setToast({
       visible: true,
       message: 'Review submitted successfully!',
@@ -338,7 +377,12 @@ export default function TasksScreen() {
     const canChat = activeTab === 'doing' && user && task.assignee_id === user.id;
     const canUpdateStatus = activeTab === 'doing' && user && task.assignee_id === user.id && 
       task.status !== 'completed' && task.status !== 'cancelled';
-    const canReview = activeTab === 'posts' && user && task.created_by === user.id && task.status === 'completed';
+    
+    // Review logic for both doing and posts tabs
+    const reviewStatus = reviewableTasksMap[task.id];
+    const canReview = task.status === 'completed' && reviewStatus?.canReview === true;
+    const hasReviewed = task.status === 'completed' && reviewStatus?.canReview === false;
+    
     const unreadCount = unreadCounts[task.id] || 0;
 
     return (
@@ -402,12 +446,12 @@ export default function TasksScreen() {
           
           <View style={styles.footerRight}>
             {/* Chat button for "You're Doing" tab */}
-            {canChat && (
+            {(canChat || (activeTab === 'posts' && task.status === 'completed')) && (
               <TouchableOpacity 
                 style={styles.chatButton}
                 onPress={() => handleChatPress(task, true)}
                 hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                accessibilityLabel={`Chat with task owner`}
+                accessibilityLabel={activeTab === 'doing' ? `Chat with task owner` : `Chat with task assignee`}
                 accessibilityRole="button"
               >
                 <MessageCircle size={16} color={Colors.primary} strokeWidth={2} />
@@ -466,6 +510,20 @@ export default function TasksScreen() {
               </TouchableOpacity>
             )}
           </View>
+            {hasReviewed && (
+              <TouchableOpacity 
+                style={styles.viewReviewButton}
+                onPress={() => {
+                  // Navigate to reviews or show existing review
+                  console.log('View review for task:', task.id);
+                }}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                accessibilityLabel="View review"
+                accessibilityRole="button"
+              >
+                <Text style={styles.viewReviewButtonText}>View Review</Text>
+              </TouchableOpacity>
+            )}
         </View>
         
         {isOwnTask && activeTab === 'available' && (
@@ -973,6 +1031,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: Colors.white,
+  },
+  viewReviewButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  viewReviewButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.primary,
   },
   ownTaskIndicator: {
     backgroundColor: Colors.muted,
