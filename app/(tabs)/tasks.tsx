@@ -346,21 +346,6 @@ export default function TasksScreen() {
     setToast(prev => ({ ...prev, visible: false }));
   };
 
-  const handleReviewSubmitted = () => {
-    setShowReviewSheet(false);
-    setTaskToReview(null);
-    // Refresh review status
-    if (activeTab === 'doing') {
-      loadReviewableStatus(doingTasks);
-    } else if (activeTab === 'posts') {
-      loadReviewableStatus(postedTasks);
-    }
-    setToast({
-      visible: true,
-      message: 'Review submitted successfully!',
-      type: 'success'
-    });
-  };
 
   const addNewTaskToPosts = useCallback((newTask: Task) => {
     setPostedTasks(prev => [newTask, ...prev]);
@@ -489,7 +474,7 @@ export default function TasksScreen() {
             {canUpdateStatus && (
               <TouchableOpacity 
                 style={styles.updateStatusButton}
-                onPress={() => router.push(`/update-status/${task.id}`)}
+                onPress={() => router.push(`/update-status/${task.id}` as any)}
                 hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                 accessibilityLabel={`Update status for ${task.title}`}
                 accessibilityRole="button"
@@ -498,35 +483,6 @@ export default function TasksScreen() {
               </TouchableOpacity>
             )}
 
-            {canReview && (
-              <TouchableOpacity 
-                style={styles.reviewButton}
-                onPress={() => {
-                  setTaskToReview(task);
-                  setShowReviewSheet(true);
-                }}
-                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                accessibilityLabel="Leave review"
-                accessibilityRole="button"
-              >
-                <Text style={styles.reviewButtonText}>Leave Review</Text>
-              </TouchableOpacity>
-            )}
-
-            {hasReviewed && (
-              <TouchableOpacity 
-                style={styles.viewReviewButton}
-                onPress={() => {
-                  // Navigate to reviews or show existing review
-                  console.log('View review for task:', task.id);
-                }}
-                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                accessibilityLabel="View review"
-                accessibilityRole="button"
-              >
-                <Text style={styles.viewReviewButtonText}>View Review</Text>
-              </TouchableOpacity>
-            )}
           </View>
         </View>
         
@@ -1035,22 +991,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: Colors.white,
-  },
-  viewReviewButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: Colors.primary,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    minHeight: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  viewReviewButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.primary,
   },
   ownTaskIndicator: {
     backgroundColor: Colors.muted,
