@@ -213,6 +213,17 @@ export default function UserProfileSheet({
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
+  const formatOnlineStatus = (lastSeenAt: string): string => {
+    const lastSeen = new Date(lastSeenAt);
+    const now = new Date();
+    const diffInMinutes = (now.getTime() - lastSeen.getTime()) / (1000 * 60);
+    
+    if (diffInMinutes < 5) return 'Online';
+    if (diffInMinutes < 60) return `Last seen ${Math.floor(diffInMinutes)}m ago`;
+    if (diffInMinutes < 1440) return `Last seen ${Math.floor(diffInMinutes / 60)}h ago`;
+    return `Last seen ${Math.floor(diffInMinutes / 1440)}d ago`;
+  };
+
   const renderSkeleton = () => (
     <View style={styles.skeletonContainer}>
       <View style={styles.skeletonAvatar} />
@@ -328,6 +339,24 @@ export default function UserProfileSheet({
                       )}
                     </View>
                     
+                    {/* Online Status */}
+                    <View style={styles.onlineStatusContainer}>
+                      <View style={[
+                        styles.onlineStatusDot,
+                        { backgroundColor: data.profile.last_seen_at && 
+                          (new Date().getTime() - new Date(data.profile.last_seen_at).getTime()) < 5 * 60 * 1000
+                          ? Colors.semantic.successAlert 
+                          : Colors.semantic.tabInactive 
+                        }
+                      ]} />
+                      <Text style={styles.onlineStatusText}>
+                        {data.profile.last_seen_at 
+                          ? formatOnlineStatus(data.profile.last_seen_at)
+                          : 'Offline'
+                        }
+                      </Text>
+                    </View>
+
                     <Text style={styles.displayName}>
                       {data.profile.full_name || data.profile.username || 'User'}
                     </Text>
@@ -351,6 +380,26 @@ export default function UserProfileSheet({
                         </Text>
                       </View>
                     )}
+
+                    {/* Stats Cards */}
+                    <View style={styles.statsContainer}>
+                      <View style={styles.statCard}>
+                        <Text style={styles.statValue}>{data.profile.completed_tasks_count || 0}</Text>
+                        <Text style={styles.statLabel}>Tasks</Text>
+                      </View>
+                      
+                      <View style={styles.statCard}>
+                        <Text style={styles.statValue}>{(data.profile.response_rate || 0).toFixed(0)}%</Text>
+                        <Text style={styles.statLabel}>Response</Text>
+                      </View>
+                      
+                      {data.profile.class_year && (
+                        <View style={styles.statCard}>
+                          <Text style={styles.statValue}>{data.profile.class_year}</Text>
+                          <Text style={styles.statLabel}>Year</Text>
+                        </View>
+                      )}
+                    </View>
 
                     {/* Action Buttons */}
                     <View style={styles.actionButtons}>
@@ -400,9 +449,17 @@ export default function UserProfileSheet({
                           Member since {formatDate(data.profile.created_at)}
                         </Text>
                       </View>
+                      
+                      {data.profile.is_verified && (
+                        <View style={styles.aboutItem}>
+                          <View style={styles.verifiedBadge}>
+                            <Text style={styles.verifiedText}>✓ Verified Student</Text>
+                          </View>
+                        </View>
+                      )}
                     </View>
 
-                    {data.profile.bio ? (
+                    {data.profile.bio && data.profile.bio.trim() ? (
                       <Text style={styles.bioText} numberOfLines={3}>
                         {data.profile.bio}
                       </Text>
@@ -647,6 +704,45 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.primary,
   },
+  onlineStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  onlineStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  onlineStatusText: {
+    fontSize: 12,
+    color: Colors.semantic.tabInactive,
+    fontWeight: '500',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: Colors.muted,
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    gap: 4,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.semantic.bodyText,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: Colors.semantic.tabInactive,
+    fontWeight: '500',
+  },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -732,6 +828,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.semantic.bodyText,
     flex: 1,
+  },
+  verifiedBadge: {
+    backgroundColor: Colors.semantic.successAlert + '20',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  verifiedText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.semantic.successAlert,
   },
   bioText: {
     fontSize: 16,
