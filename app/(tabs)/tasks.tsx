@@ -284,7 +284,7 @@ export default function TasksScreen() {
     } finally {
       setAcceptingTaskId(null);
     }
-  };
+    router.push(`/update-status/${task.id}`);
 
   // Handle chat button press
   const handleChatPress = async (task: Task, isFromDoingTab = false) => {

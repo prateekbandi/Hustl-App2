@@ -557,17 +557,13 @@ export default function TaskDetailScreen() {
             {showUpdateButton && (
               <TouchableOpacity
                 style={[styles.updateStatusButton, isUpdating && styles.updateStatusButtonDisabled]}
-                onPress={() => setShowStatusModal(true)}
+                onPress={() => router.push(`/update-status/${taskId}`)}
                 disabled={isUpdating}
               >
-                {isUpdating ? (
-                  <ActivityIndicator size="small" color={Colors.white} />
-                ) : (
-                  <>
-                    <Text style={styles.updateStatusText}>Update Status</Text>
-                    <ChevronRight size={16} color={Colors.white} strokeWidth={2} />
-                  </>
-                )}
+                <>
+                  <Text style={styles.updateStatusText}>Update Status</Text>
+                  <ChevronRight size={16} color={Colors.white} strokeWidth={2} />
+                </>
               </TouchableOpacity>
             )}
 
@@ -603,8 +599,6 @@ export default function TaskDetailScreen() {
           </View>
         </ScrollView>
       </View>
-
-      {renderStatusModal()}
 
       <Toast
         visible={toast.visible}
