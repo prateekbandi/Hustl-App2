@@ -101,10 +101,12 @@ export default function TasksScreen() {
           break;
         case 'doing':
           result = await TaskRepo.listUserDoingTasks(user.id);
-          if (result.data) setDoingTasks(result.data);
-          break;
+          if (result.data) {
+            setDoingTasks(result.data);
             // Load review status for completed tasks
             loadReviewableStatus(result.data);
+          }
+          break;
         case 'posts':
           result = await TaskRepo.listUserPostedTasks(user.id);
           if (result.data) {
@@ -285,6 +287,7 @@ export default function TasksScreen() {
       setAcceptingTaskId(null);
     }
     router.push(`/update-status/${task.id}`);
+  };
 
   // Handle chat button press
   const handleChatPress = async (task: Task, isFromDoingTab = false) => {
@@ -509,7 +512,7 @@ export default function TasksScreen() {
                 <Text style={styles.reviewButtonText}>Leave Review</Text>
               </TouchableOpacity>
             )}
-          </View>
+
             {hasReviewed && (
               <TouchableOpacity 
                 style={styles.viewReviewButton}
@@ -524,6 +527,7 @@ export default function TasksScreen() {
                 <Text style={styles.viewReviewButtonText}>View Review</Text>
               </TouchableOpacity>
             )}
+          </View>
         </View>
         
         {isOwnTask && activeTab === 'available' && (
