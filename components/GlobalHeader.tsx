@@ -170,6 +170,14 @@ export default function GlobalHeader({
     </Modal>
   );
 
+  const renderHeaderDropdown = () => {
+    return null;
+  };
+
+  const handleProfileLongPress = () => {
+    // Handle long press
+  };
+
   if (isGuest) {
     return (
       <>
@@ -256,19 +264,6 @@ export default function GlobalHeader({
                 resizeMode="contain"
               />
               <Text style={styles.headerBrandText}>Hustl</Text>
-            <TouchableOpacity 
-              style={styles.logoContainer} 
-              onPress={handleLogoPress}
-              activeOpacity={0.7}
-              accessibilityLabel="Go to Home"
-              accessibilityRole="button"
-            >
-              <Image
-                source={require('../src/assets/images/image.png')}
-                style={styles.headerLogo}
-                resizeMode="contain"
-              />
-              <Text style={styles.headerBrandText}>Hustl</Text>
             </TouchableOpacity>
           </View>
 
@@ -290,6 +285,8 @@ export default function GlobalHeader({
             )}
           </View>
         </View>
+      </View>
+      
       {/* Profile Sidebar */}
       <ProfileSidebar
         visible={showProfileSidebar}
