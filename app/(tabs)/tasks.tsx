@@ -55,6 +55,9 @@ export default function TasksScreen() {
   const [showReviewSheet, setShowReviewSheet] = useState(false);
   const [taskToReview, setTaskToReview] = useState<Task | null>(null);
 
+  // Chat-related state
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+
   // Request location permission on mount
   useEffect(() => {
     requestLocationPermission();
@@ -127,7 +130,28 @@ export default function TasksScreen() {
   // Load tasks when tab changes or component mounts
   useEffect(() => {
     loadTasks();
+    if (activeTab === 'doing') {
+      loadUnreadCounts();
+    }
   }, [loadTasks]);
+
+  // Load unread counts for doing tasks
+  const loadUnreadCounts = async () => {
+    if (isGuest || !user || activeTab !== 'doing') return;
+
+    try {
+      const { data: inbox } = await ChatService.getChatInbox();
+      if (inbox) {
+        const counts: Record<string, number> = {};
+        inbox.forEach(item => {
+          counts[item.task_id] = item.unread_count;
+        });
+        setUnreadCounts(counts);
+      }
+    } catch (error) {
+      console.warn('Failed to load unread counts:', error);
+    }
+  };
 
   // Handle view mode change
   const handleViewModeChange = (mode: ViewMode) => {
@@ -156,6 +180,9 @@ export default function TasksScreen() {
   // Handle pull to refresh
   const handleRefresh = () => {
     loadTasks(true);
+    if (activeTab === 'doing') {
+      loadUnreadCounts();
+    }
   };
 
   // Handle task acceptance
@@ -227,7 +254,7 @@ export default function TasksScreen() {
   };
 
   // Handle chat button press
-  const handleChatPress = async (task: Task) => {
+  const handleChatPress = async (task: Task, isFromDoingTab = false) => {
     if (Platform.OS !== 'web') {
       try {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -237,11 +264,24 @@ export default function TasksScreen() {
     }
 
     try {
-      const { data: room, error } = await ChatService.getRoomForTask(task.id);
+      // For "You're Doing" tasks, ensure room exists
+      const { data: room, error } = isFromDoingTab 
+        ? await ChatService.ensureRoomForTask(task.id)
+        : await ChatService.getRoomForTask(task.id);
       
       if (error || !room) {
-        const { data: newRoom, error: createError } = await ChatService.ensureRoomForTask(task.id);
-        if (createError || !newRoom) {
+        if (!isFromDoingTab) {
+          const { data: newRoom, error: createError } = await ChatService.ensureRoomForTask(task.id);
+          if (createError || !newRoom) {
+            setToast({
+              visible: true,
+              message: 'Chat not available for this task',
+              type: 'error'
+            });
+            return;
+          }
+          router.push(`/chat/${newRoom.id}`);
+        } else {
           setToast({
             visible: true,
             message: 'Chat not available for this task',
@@ -249,9 +289,13 @@ export default function TasksScreen() {
           });
           return;
         }
-        router.push(`/chat/${newRoom.id}`);
       } else {
         router.push(`/chat/${room.id}`);
+        
+        // Clear unread count for this task
+        if (isFromDoingTab) {
+          setUnreadCounts(prev => ({ ...prev, [task.id]: 0 }));
+        }
       }
     } catch (error) {
       setToast({
@@ -290,11 +334,12 @@ export default function TasksScreen() {
   const renderTaskCard = (task: Task) => {
     const isOwnTask = user && task.created_by === user.id;
     const isAccepting = acceptingTaskId === task.id;
-    const canAccept = activeTab === 'available' && !isOwnTask && !isGuest && user;
-    const canChat = task.status === 'accepted' && user && 
-      (task.created_by === user.id || task.accepted_by === user.id);
-    const canUpdateStatus = activeTab === 'doing' && user && task.accepted_by === user.id;
+    const canAccept = activeTab === 'available' && !isOwnTask && !isGuest && user && task.status === 'open';
+    const canChat = activeTab === 'doing' && user && task.assignee_id === user.id;
+    const canUpdateStatus = activeTab === 'doing' && user && task.assignee_id === user.id && 
+      task.status !== 'completed' && task.status !== 'cancelled';
     const canReview = activeTab === 'posts' && user && task.created_by === user.id && task.status === 'completed';
+    const unreadCount = unreadCounts[task.id] || 0;
 
     return (
       <View key={task.id} style={styles.taskCard}>
@@ -356,6 +401,26 @@ export default function TasksScreen() {
           </View>
           
           <View style={styles.footerRight}>
+            {/* Chat button for "You're Doing" tab */}
+            {canChat && (
+              <TouchableOpacity 
+                style={styles.chatButton}
+                onPress={() => handleChatPress(task, true)}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                accessibilityLabel={`Chat with task owner`}
+                accessibilityRole="button"
+              >
+                <MessageCircle size={16} color={Colors.primary} strokeWidth={2} />
+                {unreadCount > 0 && (
+                  <View style={styles.unreadBadge}>
+                    <Text style={styles.unreadText}>
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            )}
+
             {canAccept && (
               <TouchableOpacity 
                 style={[
@@ -376,25 +441,13 @@ export default function TasksScreen() {
             
             {canUpdateStatus && (
               <TouchableOpacity 
-                style={styles.statusButton}
+                style={styles.updateStatusButton}
                 onPress={() => router.push(`/task/${task.id}`)}
                 hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                 accessibilityLabel={`Update status for ${task.title}`}
                 accessibilityRole="button"
               >
-                <Text style={styles.statusButtonText}>Update Status</Text>
-              </TouchableOpacity>
-            )}
-
-            {canChat && (
-              <TouchableOpacity 
-                style={styles.chatButton}
-                onPress={() => handleChatPress(task)}
-                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                accessibilityLabel="Open chat"
-                accessibilityRole="button"
-              >
-                <MessageCircle size={16} color={Colors.primary} strokeWidth={2} />
+                <Text style={styles.updateStatusButtonText}>Update Status</Text>
               </TouchableOpacity>
             )}
 
@@ -848,7 +901,42 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.white,
   },
-  statusButton: {
+  chatButton: {
+    position: 'relative',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  unreadBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: Colors.secondary,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    shadowColor: Colors.secondary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  unreadText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.white,
+  },
+  updateStatusButton: {
     backgroundColor: Colors.semantic.primaryButton,
     borderRadius: 16,
     paddingHorizontal: 12,
@@ -862,21 +950,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  statusButtonText: {
+  updateStatusButtonText: {
     fontSize: 13,
     fontWeight: '600',
     color: Colors.white,
-  },
-  chatButton: {
-    backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: Colors.primary,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    minHeight: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   reviewButton: {
     backgroundColor: Colors.semantic.successAlert,
