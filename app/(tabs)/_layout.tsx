@@ -9,7 +9,7 @@ import { Colors } from '@/theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Post Task Tab Button Component
-const PostTaskButton = ({ focused }: { focused: boolean }) => {
+const PostTaskButton = () => {
   const router = useRouter();
 
   const handlePress = () => {
@@ -41,12 +41,6 @@ const PostTaskButton = ({ focused }: { focused: boolean }) => {
           <Zap size={24} color={Colors.white} strokeWidth={2.5} fill={Colors.white} />
         </LinearGradient>
       </View>
-      <Text style={[
-        styles.postTaskLabel,
-        { color: focused ? Colors.semantic.tabActive : Colors.semantic.tabInactive }
-      ]}>
-        Post Task
-      </Text>
     </TouchableOpacity>
   );
 };
@@ -55,7 +49,7 @@ const PostTaskButton = ({ focused }: { focused: boolean }) => {
 const PostTaskTabButton = (props: any) => {
   return (
     <View style={styles.postTaskTabContainer}>
-      <PostTaskButton focused={props.accessibilityState?.selected || false} />
+      <PostTaskButton />
     </View>
   );
 };
@@ -73,9 +67,9 @@ export default function TabLayout() {
             backgroundColor: '#FFFFFF',
             borderTopColor: Colors.semantic.divider,
             borderTopWidth: 1,
-            height: 64 + insets.bottom,
+            height: 56 + insets.bottom,
             paddingBottom: insets.bottom,
-            paddingTop: 8,
+            paddingTop: 4,
             position: 'absolute',
             bottom: 0,
             left: 0,
@@ -88,27 +82,26 @@ export default function TabLayout() {
           },
           tabBarActiveTintColor: Colors.semantic.tabActive,
           tabBarInactiveTintColor: Colors.semantic.tabInactive,
-          tabBarIconStyle: {
-            marginTop: 4,
-          },
         }}
       >
         <Tabs.Screen
           name="home"
           options={{
+            tabBarLabel: '',
             tabBarAccessibilityLabel: 'Home',
             tabBarIcon: ({ size, color }) => (
-              <Home size={size} color={color} strokeWidth={2} />
+              <Home size={24} color={color} strokeWidth={2} />
             ),
           }}
         />
         <Tabs.Screen
           name="tasks"
           options={{
+            tabBarLabel: '',
             tabBarAccessibilityLabel: 'Tasks',
             tabBarIcon: ({ size, color, focused }) => (
               <List 
-                size={size} 
+                size={24} 
                 color={color} 
                 strokeWidth={focused ? 2.5 : 2}
               />
@@ -118,6 +111,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="post"
           options={{
+            tabBarLabel: '',
             tabBarAccessibilityLabel: 'Post Task',
             tabBarButton: PostTaskTabButton,
           }}
@@ -125,18 +119,20 @@ export default function TabLayout() {
         <Tabs.Screen
           name="chats"
           options={{
+            tabBarLabel: '',
             tabBarAccessibilityLabel: 'Chats',
             tabBarIcon: ({ size, color }) => (
-              <MessageCircle size={size} color={color} strokeWidth={2} />
+              <MessageCircle size={24} color={color} strokeWidth={2} />
             ),
           }}
         />
         <Tabs.Screen
           name="referrals"
           options={{
+            tabBarLabel: '',
             tabBarAccessibilityLabel: 'Referrals',
             tabBarIcon: ({ size, color }) => (
-              <Gift size={size} color={color} strokeWidth={2} />
+              <Gift size={24} color={color} strokeWidth={2} />
             ),
           }}
         />
@@ -177,11 +173,5 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  postTaskLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 4,
   },
 });
