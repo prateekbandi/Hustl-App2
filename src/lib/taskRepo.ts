@@ -26,7 +26,8 @@ export class TaskRepo {
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
-        .eq('status', 'open')
+        .eq('status', 'posted')
+        .eq('moderation_status', 'approved')
         .neq('created_by', userId)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
