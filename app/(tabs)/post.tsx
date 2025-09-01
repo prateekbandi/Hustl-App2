@@ -520,7 +520,7 @@ export default function PostScreen() {
                     updateFieldError('title', value);
                   }}
                   placeholder="What do you need help with?"
-                  placeholderTextColor={Colors.muted.foreground}
+                  placeholderTextColor={Colors.semantic.tabInactive}
                   editable={!isLoading}
                   accessibilityLabel="Task title"
                 />
@@ -536,7 +536,7 @@ export default function PostScreen() {
                   value={description}
                   onChangeText={setDescription}
                   placeholder="Provide more details about the task..."
-                  placeholderTextColor={Colors.muted.foreground}
+                  placeholderTextColor={Colors.semantic.tabInactive}
                   multiline
                   numberOfLines={3}
                   textAlignVertical="top"
@@ -550,7 +550,7 @@ export default function PostScreen() {
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Store *</Text>
                 <View style={[styles.inputWithIcon, fieldErrors.store && styles.inputError]}>
-                  <Store size={20} color={Colors.muted.foreground} strokeWidth={2} />
+                  <Store size={20} color={Colors.semantic.tabInactive} strokeWidth={2} />
                   <TextInput
                     style={styles.inputText}
                     value={store}
@@ -559,7 +559,7 @@ export default function PostScreen() {
                       updateFieldError('store', value);
                     }}
                     placeholder="e.g., Publix, Starbucks, Target"
-                    placeholderTextColor={Colors.muted.foreground}
+                    placeholderTextColor={Colors.semantic.tabInactive}
                     editable={!isLoading}
                     accessibilityLabel="Store name"
                   />
@@ -577,7 +577,7 @@ export default function PostScreen() {
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Drop-off Address *</Text>
                 <View style={[styles.inputWithIcon, fieldErrors.dropoffAddress && styles.inputError]}>
-                  <MapPin size={20} color={Colors.muted.foreground} strokeWidth={2} />
+                  <MapPin size={20} color={Colors.semantic.tabInactive} strokeWidth={2} />
                   <TextInput
                     style={styles.inputText}
                     value={dropoffAddress}
@@ -586,7 +586,7 @@ export default function PostScreen() {
                       updateFieldError('dropoffAddress', value);
                     }}
                     placeholder="Where should this be delivered?"
-                    placeholderTextColor={Colors.muted.foreground}
+                    placeholderTextColor={Colors.semantic.tabInactive}
                     editable={!isLoading}
                     accessibilityLabel="Drop-off address"
                   />
@@ -599,13 +599,13 @@ export default function PostScreen() {
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Drop-off Instructions</Text>
                 <View style={styles.inputWithIcon}>
-                  <Package size={20} color={Colors.muted.foreground} strokeWidth={2} />
+                  <Package size={20} color={Colors.semantic.tabInactive} strokeWidth={2} />
                   <TextInput
                     style={styles.inputText}
                     value={dropoffInstructions}
                     onChangeText={setDropoffInstructions}
                     placeholder="Any special delivery instructions?"
-                    placeholderTextColor={Colors.muted.foreground}
+                    placeholderTextColor={Colors.semantic.tabInactive}
                     editable={!isLoading}
                     accessibilityLabel="Drop-off instructions"
                   />
@@ -620,7 +620,7 @@ export default function PostScreen() {
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Estimated Time *</Text>
                 <View style={[styles.inputWithIcon, fieldErrors.estimatedMinutes && styles.inputError]}>
-                  <Clock size={20} color={Colors.muted.foreground} strokeWidth={2} />
+                  <Clock size={20} color={Colors.semantic.tabInactive} strokeWidth={2} />
                   <TextInput
                     style={styles.inputText}
                     value={estimatedMinutes}
@@ -629,7 +629,7 @@ export default function PostScreen() {
                       updateFieldError('estimatedMinutes', value);
                     }}
                     placeholder="30"
-                    placeholderTextColor={Colors.muted.foreground}
+                    placeholderTextColor={Colors.semantic.tabInactive}
                     keyboardType="number-pad"
                     editable={!isLoading}
                     accessibilityLabel="Estimated time in minutes"

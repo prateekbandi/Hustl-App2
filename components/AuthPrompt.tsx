@@ -34,7 +34,7 @@ export default function AuthPrompt({ visible, onClose, title, message }: AuthPro
       <View style={styles.overlay}>
         <View style={styles.modal}>
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <X size={20} color={Colors.muted.foreground} strokeWidth={2} />
+            <X size={20} color={Colors.semantic.tabInactive} strokeWidth={2} />
           </TouchableOpacity>
           
           <View style={styles.content}>
