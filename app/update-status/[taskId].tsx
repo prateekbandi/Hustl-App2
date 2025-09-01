@@ -727,7 +727,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   primaryActionButtonDisabled: {
-    backgroundColor: Colors.semantic.tabInactive + ' !important',
+    backgroundColor: Colors.semantic.tabInactive,
     shadowOpacity: 0,
     elevation: 0,
   },

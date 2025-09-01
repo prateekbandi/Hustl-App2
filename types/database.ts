@@ -1,5 +1,5 @@
-export type TaskStatus = 'posted' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
-export type TaskCurrentStatus = 'posted' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+export type TaskStatus = 'open' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+export type TaskCurrentStatus = 'open' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
 export type ModerationStatus = 'approved' | 'needs_review' | 'blocked';
 export type TaskCategory = 'food' | 'grocery' | 'coffee';
 export type TaskUrgency = 'low' | 'medium' | 'high';
