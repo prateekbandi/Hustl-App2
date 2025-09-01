@@ -33,7 +33,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 
   plugins: [
     "expo-router",
-    "react-native-reanimated",
     // Put your key in an env var in real projects
     ["expo-maps", { googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "YOUR_MAPS_KEY" }],
     ["expo-location", {
@@ -42,8 +41,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     }],
     "expo-dev-client"
   ],
-
-  jsEngine: "hermes",
 
   experiments: {
     typedRoutes: true
