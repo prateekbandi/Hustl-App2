@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { AlertTriangle, Clock, X } from 'lucide-react-native';
+import { TriangleAlert as AlertTriangle, Clock, X } from 'lucide-react-native';
 import { Colors } from '@/theme/colors';
 import { ModerationStatus, getModerationStatusColor, getModerationErrorMessage } from '@/lib/moderation';
 
