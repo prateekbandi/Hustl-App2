@@ -1,5 +1,6 @@
 export type TaskStatus = 'posted' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
 export type TaskCurrentStatus = 'posted' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+export type ModerationStatus = 'approved' | 'needs_review' | 'blocked';
 export type TaskCategory = 'food' | 'grocery' | 'coffee';
 export type TaskUrgency = 'low' | 'medium' | 'high';
 
@@ -17,6 +18,10 @@ export interface Task {
   status: TaskStatus;
   task_current_status: TaskCurrentStatus;
   accepted_by: string | null;
+  moderation_status: ModerationStatus;
+  moderation_reason: string | null;
+  moderated_at: string | null;
+  moderated_by: string | null;
   accepted_at: string | null;
   last_status_update: string;
   created_by: string;

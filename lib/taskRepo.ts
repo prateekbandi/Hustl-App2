@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
-import type { Task, CreateTaskData, TaskStatus, TaskCategory, TaskUrgency, TaskCurrentStatus, TaskStatusHistory, UpdateTaskStatusData } from '@/types/database';
+import type { Task, CreateTaskData, TaskStatus, TaskCategory, TaskUrgency, TaskCurrentStatus, TaskStatusHistory, UpdateTaskStatusData, ModerationStatus } from '@/types/database';
+import { moderateAndSaveTask, type TaskModerationData } from '@/lib/moderation';
 
 /**
  * Safe Task Repository - Eliminates 406 PGRST116 errors completely
@@ -45,6 +46,7 @@ export class TaskRepo {
         .from('tasks')
         .select('*')
         .eq('status', 'open')
+        .eq('moderation_status', 'approved')
         .neq('created_by', userId)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
@@ -105,33 +107,68 @@ export class TaskRepo {
   }
 
   /**
-   * Create a new task
-   * Safe creation - uses .limit(1) + [0] for response
+   * Create a new task with moderation
+   * Uses server-side moderation function
    */
-  static async createTask(taskData: CreateTaskData, userId: string): Promise<{ data: Task | null; error: string | null }> {
+  static async createTask(taskData: CreateTaskData, userId: string): Promise<{ data: Task | null; error: string | null; moderationStatus?: ModerationStatus; moderationReason?: string }> {
     try {
-      const { data, error } = await supabase
-        .from('tasks')
-        .insert({
-          ...taskData,
-          created_by: userId,
-          status: 'open' as TaskStatus,
-        })
-        .select()
-        .limit(1);
+      // Use moderation function instead of direct insert
+      const moderationData: TaskModerationData = {
+        title: taskData.title,
+        description: taskData.description,
+        dropoff_instructions: taskData.dropoff_instructions,
+        store: taskData.store,
+        dropoff_address: taskData.dropoff_address,
+        category: taskData.category,
+        urgency: taskData.urgency,
+        estimated_minutes: taskData.estimated_minutes,
+        reward_cents: taskData.reward_cents
+      };
 
-      if (error) {
-        return { data: null, error: error.message };
+      const moderationResult = await moderateAndSaveTask(moderationData);
+      
+      if (moderationResult.error) {
+        return { 
+          data: null, 
+          error: moderationResult.error,
+          moderationStatus: moderationResult.status,
+          moderationReason: moderationResult.reason
+        };
       }
 
-      const task = data?.[0] ?? null;
-      if (!task) {
-        return { data: null, error: 'Failed to create task. Please try again.' };
+      if (!moderationResult.task_id) {
+        return { 
+          data: null, 
+          error: 'Failed to create task. Please try again.',
+          moderationStatus: moderationResult.status,
+          moderationReason: moderationResult.reason
+        };
       }
 
-      return { data: task, error: null };
+      // Fetch the created task
+      const { data: task, error: fetchError } = await TaskRepo.getTaskByIdSafe(moderationResult.task_id);
+      
+      if (fetchError || !task) {
+        return { 
+          data: null, 
+          error: 'Task created but failed to retrieve. Please refresh.',
+          moderationStatus: moderationResult.status,
+          moderationReason: moderationResult.reason
+        };
+      }
+
+      return { 
+        data: task, 
+        error: null,
+        moderationStatus: moderationResult.status,
+        moderationReason: moderationResult.reason
+      };
     } catch (error) {
-      return { data: null, error: 'Network error. Please check your connection.' };
+      return { 
+        data: null, 
+        error: 'Network error. Please check your connection.',
+        moderationStatus: 'blocked'
+      };
     }
   }
 

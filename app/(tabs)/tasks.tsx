@@ -12,6 +12,7 @@ import { ChatService } from '@/lib/chat';
 import { openGoogleMapsNavigation } from '@/lib/navigation';
 import { ReviewRepo } from '@/lib/reviewRepo';
 import { Task, TaskCurrentStatus } from '@/types/database';
+import { getModerationStatusLabel, getModerationStatusColor, isTaskPubliclyVisible } from '@/lib/moderation';
 import GlobalHeader from '@/components/GlobalHeader';
 import Toast from '@/components/Toast';
 import TasksMap, { TaskPin } from '@/components/TasksMap';
@@ -372,7 +373,8 @@ export default function TasksScreen() {
   const renderTaskCard = (task: Task) => {
     const isOwnTask = user && task.created_by === user.id;
     const isAccepting = acceptingTaskId === task.id;
-    const canAccept = activeTab === 'available' && !isOwnTask && !isGuest && user && task.status === 'open';
+    const canAccept = activeTab === 'available' && !isOwnTask && !isGuest && user && 
+      task.status === 'open' && task.moderation_status === 'approved';
     const canChat = activeTab === 'doing' && user && task.assignee_id === user.id;
     const canUpdateStatus = activeTab === 'doing' && user && task.assignee_id === user.id && 
       task.status !== 'completed' && task.status !== 'cancelled';
@@ -390,10 +392,27 @@ export default function TasksScreen() {
         <View style={styles.taskHeader}>
           <View style={styles.taskTitleContainer}>
             <Text style={styles.taskTitle}>{task.title}</Text>
-            <View style={styles.categoryBadge}>
-              <Text style={styles.categoryText}>
-                {TaskRepo.formatCategory(task.category)}
-              </Text>
+            <View style={styles.badgeContainer}>
+              <View style={styles.categoryBadge}>
+                <Text style={styles.categoryText}>
+                  {TaskRepo.formatCategory(task.category)}
+                </Text>
+              </View>
+              
+              {/* Moderation Status Badge (only for own tasks) */}
+              {isOwnTask && task.moderation_status !== 'approved' && (
+                <View style={[
+                  styles.moderationBadge,
+                  { backgroundColor: getModerationStatusColor(task.moderation_status) + '20' }
+                ]}>
+                  <Text style={[
+                    styles.moderationText,
+                    { color: getModerationStatusColor(task.moderation_status) }
+                  ]}>
+                    {getModerationStatusLabel(task.moderation_status)}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
           <Text style={styles.taskReward}>
@@ -826,6 +845,9 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
+  badgeContainer: {
+    gap: 4,
+  },
   taskTitle: {
     fontSize: 15,
     fontWeight: '600',
@@ -843,6 +865,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
     color: Colors.semantic.tabInactive,
+  },
+  moderationBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
+  },
+  moderationText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   taskReward: {
     fontSize: 16,

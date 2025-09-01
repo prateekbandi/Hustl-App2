@@ -9,6 +9,7 @@ import { Colors } from '@/theme/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { TaskRepo } from '@/lib/taskRepo';
 import { TaskCategory, TaskUrgency } from '@/types/database';
+import { getModerationErrorMessage, getModerationStatusLabel } from '@/lib/moderation';
 import AuthPrompt from '@components/AuthPrompt';
 import GlobalHeader from '@/components/GlobalHeader';
 import TaskSuccessSheet from '@components/TaskSuccessSheet';
@@ -112,6 +113,7 @@ export default function PostScreen() {
   // UI state
   const [isLoading, setIsLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [moderationError, setModerationError] = useState('');
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [showSuccessSheet, setShowSuccessSheet] = useState(false);
   const [lastCreatedTaskId, setLastCreatedTaskId] = useState<string | null>(null);
@@ -244,6 +246,7 @@ export default function PostScreen() {
 
     // Clear previous errors
     setSubmitError('');
+    setModerationError('');
 
     // Final validation of all fields
     const errors: Record<string, string> = {};
@@ -274,25 +277,38 @@ export default function PostScreen() {
       const taskData = {
         title: title.trim(),
         description: description.trim(),
+        dropoff_instructions: dropoffInstructions.trim(),
         category: mapCategoryToDatabase(category),
         store: store.trim(),
         dropoff_address: dropoffAddress.trim(),
-        dropoff_instructions: dropoffInstructions.trim(),
         urgency: urgency as TaskUrgency,
         estimated_minutes: Number(estimatedMinutes),
         reward_cents: computedPriceCents,
       };
 
-      const { data, error: createError } = await TaskRepo.createTask(taskData, user.id);
+      const { data, error: createError, moderationStatus, moderationReason } = await TaskRepo.createTask(taskData, user.id);
 
-      if (createError) {
-        setSubmitError("Couldn't post your task. Try again.");
+      if (createError || moderationStatus === 'blocked') {
+        if (moderationStatus === 'blocked') {
+          setModerationError(getModerationErrorMessage(moderationReason));
+        } else {
+          setSubmitError(createError || "Couldn't post your task. Try again.");
+        }
         return;
       }
 
       if (!data || !data.id) {
         setSubmitError("Couldn't post your task. Try again.");
         return;
+      }
+
+      // Handle moderation status
+      if (moderationStatus === 'needs_review') {
+        setToast({
+          visible: true,
+          message: 'Task submitted for review. Only you can see it for now.',
+          type: 'success'
+        });
       }
 
       // Success - store the created task ID and show success screen
@@ -474,6 +490,19 @@ export default function PostScreen() {
             {submitError ? (
               <View style={styles.submitErrorContainer}>
                 <Text style={styles.submitErrorText}>{submitError}</Text>
+              </View>
+            ) : null}
+
+            {/* Moderation Error */}
+            {moderationError ? (
+              <View style={styles.moderationErrorContainer}>
+                <Text style={styles.moderationErrorText}>{moderationError}</Text>
+                <TouchableOpacity 
+                  style={styles.editResubmitButton}
+                  onPress={() => setModerationError('')}
+                >
+                  <Text style={styles.editResubmitButtonText}>Edit & Resubmit</Text>
+                </TouchableOpacity>
               </View>
             ) : null}
 
@@ -840,6 +869,32 @@ const styles = StyleSheet.create({
     color: Colors.semantic.errorAlert,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  moderationErrorContainer: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+  },
+  moderationErrorText: {
+    fontSize: 14,
+    color: Colors.semantic.errorAlert,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  editResubmitButton: {
+    backgroundColor: Colors.semantic.errorAlert,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignSelf: 'center',
+  },
+  editResubmitButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.white,
   },
   prefilledChip: {
     backgroundColor: Colors.primary + '15', // 15% opacity
