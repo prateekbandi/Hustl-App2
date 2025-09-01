@@ -346,6 +346,17 @@ export default function TasksScreen() {
     setToast(prev => ({ ...prev, visible: false }));
   };
 
+  const handleReviewSubmitted = async () => {
+    // Reload tasks to reflect any newly submitted reviews
+    await loadTasks();
+    
+    // Show success toast
+    setToast({
+      visible: true,
+      message: 'Review submitted successfully!',
+      type: 'success'
+    });
+  };
 
   const addNewTaskToPosts = useCallback((newTask: Task) => {
     setPostedTasks(prev => [newTask, ...prev]);
