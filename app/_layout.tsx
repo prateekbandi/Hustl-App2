@@ -10,9 +10,9 @@ export default function RootLayout() {
   useFrameworkReady();
 
   return (
-    <SupabaseProvider>
-      <AuthProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SupabaseProvider>
+        <AuthProvider>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="(onboarding)" />
@@ -21,8 +21,8 @@ export default function RootLayout() {
             <Stack.Screen name="+not-found" />
           </Stack>
           <StatusBar style="auto" />
-        </GestureHandlerRootView>
-      </AuthProvider>
-    </SupabaseProvider>
+        </AuthProvider>
+      </SupabaseProvider>
+    </GestureHandlerRootView>
   );
 }

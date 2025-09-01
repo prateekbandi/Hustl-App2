@@ -39,8 +39,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       locationAlwaysAndWhenInUseUsageDescription:
         "We use your location to show nearby tasks on the map."
     }],
-    "expo-dev-client"
+    "expo-dev-client",
+    "react-native-reanimated"
   ],
+
+  jsEngine: "hermes",
 
   experiments: {
     typedRoutes: true
